@@ -6,7 +6,6 @@ export const DATA_ROW = 12;
 export const TEMPLATE_PATH = path.join(/*turbopackIgnore: true*/ process.cwd(), 'data', 'arac-kullanim-sablon.xlsx');
 export const TEMPLATE_SHEET = 'ÇİZELGE';
 
-// Orijinal projenizdeki şablon sütunları (Birebir eşleştirme)
 export const CELL_COLUMNS = {
   surucu: "A", 
   tarih: "C", 
@@ -27,7 +26,7 @@ export const CELL_COLUMNS = {
 export const cellAddress = (col: string, row: number) => `${col}${row}`;
 
 export const mapFormDataToExcel = (worksheet: any, formData: any) => {
-  // Checkbox (Onay kutusu) formatlama fonksiyonu (Web'deki durumları Excel'deki kutucuklara çevirir)
+  // Checkbox (Onay kutusu) formatlama fonksiyonu
   const formatCheck = (madde: any) => {
     if (!madde) return '■ Kontrol Edildi.\n□ Uygun değil.\n□ Diğer…...............';
     if (madde.durum === 'Uygun') return '■ Kontrol Edildi.\n□ Uygun değil.\n□ Diğer…...............';
@@ -35,17 +34,22 @@ export const mapFormDataToExcel = (worksheet: any, formData: any) => {
     return '□ Kontrol Edildi.\n□ Uygun değil.\n□ Diğer…...............';
   };
 
-  // Araç ve Sürücü (Frontend'deki gerçek key'ler: sofor1, plaka, tarih)
-  worksheet.getCell(cellAddress(CELL_COLUMNS.surucu, DATA_ROW)).value = formData.sofor1 || '';
-  worksheet.getCell(cellAddress(CELL_COLUMNS.tarih, DATA_ROW)).value = formData.tarih || '';
-  worksheet.getCell(cellAddress(CELL_COLUMNS.plaka, DATA_ROW)).value = formData.plaka || '';
-  
-  // Kontrol Alanları (Cam, Lastik)
+  // 1. Formdaki seferleri (gidiş-dönüşleri) topla
+  const seferler = [];
+  if (formData.gidisKm1 || formData.donusKm1) seferler.push({ gidis: formData.gidisKm1, donus: formData.donusKm1 });
+  if (formData.gidisKm2 || formData.donusKm2) seferler.push({ gidis: formData.gidisKm2, donus: formData.donusKm2 });
+  if (formData.gidisKm3 || formData.donusKm3) seferler.push({ gidis: formData.gidisKm3, donus: formData.donusKm3 });
+
+  // Eğer formu dolduran hiç KM girmemişse bile en az 1 ana satır yazsın
+  if (seferler.length === 0) {
+    seferler.push({ gidis: '', donus: '' });
+  }
+
+  // 2. Her satırda aynı kalacak "Ortak Verileri" bir kez hazırla
   const kontrol = formData.kontrol || {};
-  worksheet.getCell(cellAddress(CELL_COLUMNS.kontrolCamKaporta, DATA_ROW)).value = formatCheck(kontrol['cam_kaporta']);
-  worksheet.getCell(cellAddress(CELL_COLUMNS.kontrolLastik, DATA_ROW)).value = formatCheck(kontrol['lastikler']);
+  const camKaportaVal = formatCheck(kontrol['cam_kaporta']);
+  const lastikVal = formatCheck(kontrol['lastikler']);
   
-  // Farlar / Korna / Silecek / Cam tek bir hücrede birleşiyor (Orijinal şablondaki gibi)
   const isFarKornaUygunDegil = 
     kontrol['farlar']?.durum === 'Uygun Değil' || 
     kontrol['korna']?.durum === 'Uygun Değil' || 
@@ -56,36 +60,44 @@ export const mapFormDataToExcel = (worksheet: any, formData: any) => {
   if (isFarKornaUygunDegil) {
       farKornaAciklama = [kontrol['farlar']?.aciklama, kontrol['korna']?.aciklama, kontrol['silecek']?.aciklama, kontrol['camlar']?.aciklama].filter(Boolean).join(', ');
   }
-
-  worksheet.getCell(cellAddress(CELL_COLUMNS.kontrolFarKorna, DATA_ROW)).value = formatCheck({
+  const farKornaVal = formatCheck({
       durum: isFarKornaUygunDegil ? 'Uygun Değil' : 'Uygun',
       aciklama: farKornaAciklama
   });
-  
-  // Yakıt Bilgileri
-  worksheet.getCell(cellAddress(CELL_COLUMNS.yakit, DATA_ROW)).value = formData.yakitAlindi || '';
-  worksheet.getCell(cellAddress(CELL_COLUMNS.yakitTarih, DATA_ROW)).value = (formData.yakitAlindi === 'Evet' ? formData.yakitTarihi : '-') || '-';
-  
-  // Güzergah Metni (KM kırılımları ve eksik ekipman notlarıyla birleşik)
-  let guzergahMetni = formData.guzergah || '';
-  const kmSatir = [];
-  if (formData.gidisKm1 || formData.donusKm1) kmSatir.push(`1) Gidiş ${formData.gidisKm1 || "-"} / Dönüş ${formData.donusKm1 || "-"}`);
-  if (formData.gidisKm2 || formData.donusKm2) kmSatir.push(`2) Gidiş ${formData.gidisKm2 || "-"} / Dönüş ${formData.donusKm2 || "-"}`);
-  if (formData.gidisKm3 || formData.donusKm3) kmSatir.push(`3) Gidiş ${formData.gidisKm3 || "-"} / Dönüş ${formData.donusKm3 || "-"}`);
-  if (kmSatir.length) guzergahMetni += '\nKM Detay: ' + kmSatir.join(" | ");
 
-  worksheet.getCell(cellAddress(CELL_COLUMNS.guzergah, DATA_ROW)).value = guzergahMetni;
-  
-  // Görevli Personeller (Şoför 2 ve Şoför 3 birleşiyor)
-  const personeller = [formData.sofor2, formData.sofor3].filter(Boolean).join(', ');
-  worksheet.getCell(cellAddress(CELL_COLUMNS.personel, DATA_ROW)).value = personeller;
-  
-  // Kilometre Bilgileri (Başlangıç 1. Gidiş KM, Bitiş ise girilmiş olan en son Dönüş KM)
-  worksheet.getCell(cellAddress(CELL_COLUMNS.kmBaslangic, DATA_ROW)).value = formData.gidisKm1 || '';
-  worksheet.getCell(cellAddress(CELL_COLUMNS.kmBitis, DATA_ROW)).value = formData.donusKm3 || formData.gidisKm3 || formData.donusKm2 || formData.gidisKm2 || formData.donusKm1 || '';
-  
-  // Saatler (O sütununda Çıkış - Dönüş şeklinde)
-  const cikisSaati = formData.cikisSaati || '-';
-  const donusSaati = formData.donusSaati || '-';
-  worksheet.getCell(cellAddress(CELL_COLUMNS.saat, DATA_ROW)).value = `${cikisSaati} - ${donusSaati}`;
+  const yakitTarihVal = (formData.yakitAlindi === 'Evet' ? formData.yakitTarihi : '-') || '-';
+  const personellerVal = [formData.sofor2, formData.sofor3].filter(Boolean).join(', ');
+  const saatVal = `${formData.cikisSaati || '-'} - ${formData.donusSaati || '-'}`;
+
+  // 3. Kaç tane sefer (gidiş-dönüş) varsa Excel'de o kadar alt alta satır oluştur
+  seferler.forEach((sefer, index) => {
+    // İlk sefer 12. satıra, 2. sefer 13. satıra, 3. sefer 14. satıra yazılır
+    const currentRow = DATA_ROW + index; 
+
+    // Ortak veriler tüm satırlara aynen yazılır
+    worksheet.getCell(cellAddress(CELL_COLUMNS.surucu, currentRow)).value = formData.sofor1 || '';
+    worksheet.getCell(cellAddress(CELL_COLUMNS.tarih, currentRow)).value = formData.tarih || '';
+    worksheet.getCell(cellAddress(CELL_COLUMNS.plaka, currentRow)).value = formData.plaka || '';
+    
+    worksheet.getCell(cellAddress(CELL_COLUMNS.kontrolCamKaporta, currentRow)).value = camKaportaVal;
+    worksheet.getCell(cellAddress(CELL_COLUMNS.kontrolLastik, currentRow)).value = lastikVal;
+    worksheet.getCell(cellAddress(CELL_COLUMNS.kontrolFarKorna, currentRow)).value = farKornaVal;
+    
+    worksheet.getCell(cellAddress(CELL_COLUMNS.yakit, currentRow)).value = formData.yakitAlindi || '';
+    worksheet.getCell(cellAddress(CELL_COLUMNS.yakitTarih, currentRow)).value = yakitTarihVal;
+    
+    // Güzergah metni (Eğer birden fazla sefer varsa sonuna 1. Sefer, 2. Sefer diye not düşer)
+    let guzergahMetni = formData.guzergah || '';
+    if (seferler.length > 1) {
+        guzergahMetni += `\n(${index + 1}. Sefer)`;
+    }
+    worksheet.getCell(cellAddress(CELL_COLUMNS.guzergah, currentRow)).value = guzergahMetni;
+    
+    worksheet.getCell(cellAddress(CELL_COLUMNS.personel, currentRow)).value = personellerVal;
+    worksheet.getCell(cellAddress(CELL_COLUMNS.saat, currentRow)).value = saatVal;
+
+    // SADECE BU KISIM DEĞİŞİR: İlgili satıra o seferin Gidiş ve Dönüş KM'si yazılır
+    worksheet.getCell(cellAddress(CELL_COLUMNS.kmBaslangic, currentRow)).value = sefer.gidis || '';
+    worksheet.getCell(cellAddress(CELL_COLUMNS.kmBitis, currentRow)).value = sefer.donus || '';
+  });
 };
