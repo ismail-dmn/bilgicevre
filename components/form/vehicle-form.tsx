@@ -123,7 +123,7 @@ export function VehicleForm() {
         window.URL.revokeObjectURL(url);
 
         setToast("Form başarıyla Excel olarak indirildi!");
-        setShareOpen(true); // İndikten sonra paylaşım penceresini de açmaya devam etsin
+        setShareOpen(true); 
       } catch (error) {
         console.error("Hata:", error);
         alert("Excel oluşturulurken bir hata oluştu.");
@@ -145,13 +145,15 @@ export function VehicleForm() {
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 px-3 py-4 sm:px-4 sm:py-6">
       <FormHeader taslakNo={data.taslakNo} durum={data.durum} onDurumChange={(d: FormDurum) => set("durum", d)} />
 
+      <RulesAccordion />
+
       {errors.length > 0 && (
-        <div className="rounded-xl border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-          <div className="mb-2 flex items-center font-semibold">
-            <AlertCircle className="mr-2 size-4" />
-            Lütfen hataları düzeltin:
+        <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-4">
+          <div className="mb-2 flex items-center gap-2 font-semibold text-destructive">
+            <AlertCircle className="size-5" />
+            Lütfen eksik alanları tamamlayın
           </div>
-          <ul className="list-inside list-disc space-y-1">
+          <ul className="list-disc space-y-1 pl-6 text-sm text-destructive">
             {errors.map((e, i) => (
               <li key={i}>{e}</li>
             ))}
@@ -159,110 +161,136 @@ export function VehicleForm() {
         </div>
       )}
 
-      {/* 1. Araç & Sürücü Bilgileri */}
-      <Section title="ARAÇ & SÜRÜCÜ BİLGİLERİ">
-        <Field label="Araç Plakası" required>
-          <SelectInput
-            value={data.plaka}
-            onChange={(v) => {
-              set("plaka", v)
-              const vh = VEHICLES.find((x) => x.plaka === v)
-              if (vh) {
-                set("kmBaslangic", vh.sonKm)
-                set("kmBitis", "") // Plaka değiştiğinde bitiş KM'sini sıfırla
-              }
-            }}
-            options={VEHICLES.map((v) => ({ label: v.plaka, value: v.plaka }))}
-            placeholder="Araç Seçin"
-          />
+      {/* 1. Araç Bilgileri */}
+      <Section title="ARAÇ BİLGİLERİ">
+        <Field label="Tarih" htmlFor="tarih" required>
+          <TextInput id="tarih" type="date" value={data.tarih} onChange={(e) => set("tarih", e.target.value)} />
         </Field>
-        <Field label="Sürücü" required>
-          <SelectInput
-            value={data.surucu}
-            onChange={(v) => set("surucu", v)}
-            options={DRIVERS.map((d) => ({ label: d, value: d }))}
-            placeholder="Sürücü Seçin"
-          />
+        <Field label="Araç / Plaka" htmlFor="plaka" required>
+          <SelectInput id="plaka" placeholder="Plaka seçiniz" value={data.plaka} onChange={(e) => set("plaka", e.target.value)}>
+            {VEHICLES.map((v) => (
+              <option key={v} value={v}>
+                {v}
+              </option>
+            ))}
+          </SelectInput>
         </Field>
-        <Field label="Tarih" required>
-          <TextInput type="date" value={data.tarih} onChange={(v) => set("tarih", v)} />
+        <Field label="Şoför 1" htmlFor="sofor1" required>
+          <SelectInput id="sofor1" placeholder="Şoför seçiniz" value={data.sofor1} onChange={(e) => set("sofor1", e.target.value)}>
+            {DRIVERS.map((d) => (
+              <option key={d} value={d}>
+                {d}
+              </option>
+            ))}
+          </SelectInput>
+        </Field>
+        <Field label="Şoför 2" htmlFor="sofor2" hint="Zorunlu değil">
+          <SelectInput id="sofor2" placeholder="Seçiniz" value={data.sofor2} onChange={(e) => set("sofor2", e.target.value)}>
+            {DRIVERS.map((d) => (
+              <option key={d} value={d}>
+                {d}
+              </option>
+            ))}
+          </SelectInput>
+        </Field>
+        <Field label="Şoför 3" htmlFor="sofor3" hint="Zorunlu değil">
+          <SelectInput id="sofor3" placeholder="Seçiniz" value={data.sofor3} onChange={(e) => set("sofor3", e.target.value)}>
+            {DRIVERS.map((d) => (
+              <option key={d} value={d}>
+                {d}
+              </option>
+            ))}
+          </SelectInput>
         </Field>
       </Section>
 
-      {/* 2. Kilometre */}
-      <Section title="KİLOMETRE BİLGİSİ">
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="Başlangıç KM" required>
-            <NumberInput
-              value={data.kmBaslangic}
-              onChange={(v) => set("kmBaslangic", onlyDigits(v))}
-              placeholder="Örn: 152000"
-            />
+      {/* 2. Güzergah ve KM */}
+      <Section title="GÜZERGAH VE KM BİLGİLERİ">
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="1. Gidiş KM" htmlFor="gidisKm1" required>
+            <NumberInput id="gidisKm1" value={data.gidisKm1} onChange={(e) => set("gidisKm1", onlyDigits(e.target.value))} />
           </Field>
-          <Field label="Bitiş KM" required>
-            <NumberInput
-              value={data.kmBitis}
-              onChange={(v) => set("kmBitis", onlyDigits(v))}
-              placeholder="Örn: 152150"
-            />
+          <Field label="1. Dönüş KM" htmlFor="donusKm1" required>
+            <NumberInput id="donusKm1" value={data.donusKm1} onChange={(e) => set("donusKm1", onlyDigits(e.target.value))} />
+          </Field>
+          <Field label="2. Gidiş KM" htmlFor="gidisKm2">
+            <NumberInput id="gidisKm2" value={data.gidisKm2} onChange={(e) => set("gidisKm2", onlyDigits(e.target.value))} />
+          </Field>
+          <Field label="2. Dönüş KM" htmlFor="donusKm2">
+            <NumberInput id="donusKm2" value={data.donusKm2} onChange={(e) => set("donusKm2", onlyDigits(e.target.value))} />
+          </Field>
+          <Field label="3. Gidiş KM" htmlFor="gidisKm3">
+            <NumberInput id="gidisKm3" value={data.gidisKm3} onChange={(e) => set("gidisKm3", onlyDigits(e.target.value))} />
+          </Field>
+          <Field label="3. Dönüş KM" htmlFor="donusKm3">
+            <NumberInput id="donusKm3" value={data.donusKm3} onChange={(e) => set("donusKm3", onlyDigits(e.target.value))} />
+          </Field>
+        </div>
+        <Field label="Güzergah / Açıklama" htmlFor="guzergah">
+          <Textarea id="guzergah" value={data.guzergah} onChange={(e) => set("guzergah", e.target.value)} placeholder="Örn: Kadıköy - Gebze Şantiye - Kadıköy" />
+        </Field>
+      </Section>
+
+      {/* 3. Saatler */}
+      <Section title="ARAÇ KULLANIM SAATLERİ">
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Çıkış Saati" htmlFor="cikisSaati" required>
+            <TextInput id="cikisSaati" type="time" value={data.cikisSaati} onChange={(e) => set("cikisSaati", e.target.value)} />
+          </Field>
+          <Field label="Dönüş Saati" htmlFor="donusSaati" required={data.durum === "Tamamlandı"}>
+            <TextInput id="donusSaati" type="time" value={data.donusSaati} onChange={(e) => set("donusSaati", e.target.value)} />
           </Field>
         </div>
       </Section>
 
-      {/* 3. Yakıt Durumu */}
+      {/* 4. Yakıt */}
       <Section title="YAKIT DURUMU">
-        <Field label="Araç Teslim Edildiğinde Yakıt Seviyesi" required>
+        <Field label="Yakıt alındı mı?">
           <SegmentToggle
-            options={["ÇEYREK", "YARIM", "FULL"]}
-            value={data.yakitDurumu}
-            onChange={(v) => set("yakitDurumu", v as any)}
+            value={data.yakitAlindi}
+            onChange={(v) => set("yakitAlindi", v)}
+            options={[
+              { value: "Evet", label: "Evet" },
+              { value: "Hayır", label: "Hayır" },
+            ]}
           />
         </Field>
-        <Field label="Son Yakıt Alınan Tarih">
-          <TextInput type="date" value={data.yakitTarihi} onChange={(v) => set("yakitTarihi", v)} />
-        </Field>
+        {data.yakitAlindi === "Evet" && (
+          <Field label="Yakıt Alınan Tarih" htmlFor="yakitTarihi" required>
+            <TextInput id="yakitTarihi" type="date" value={data.yakitTarihi} onChange={(e) => set("yakitTarihi", e.target.value)} />
+          </Field>
+        )}
       </Section>
 
-      {/* 4. Görev Bilgileri */}
-      <Section title="GÖREV BİLGİLERİ">
-        <Field label="Kullanım Güzergahı / Amacı" required>
-          <Textarea
-            value={data.guzergah}
-            onChange={(v) => set("guzergah", v)}
-            placeholder="Örn: Merkez ofisten şantiyeye malzeme transferi..."
-            rows={3}
-          />
-        </Field>
-        <Field label="Araçtaki Diğer Personeller">
-          <TextInput
-            value={data.digerPersoneller}
-            onChange={(v) => set("digerPersoneller", v)}
-            placeholder="İsim soyisim giriniz (Opsiyonel)"
-          />
-        </Field>
-      </Section>
-
-      <RulesAccordion />
-
-      {/* 5. Araç Kontrol Formu */}
-      <Section title="ARAÇ KONTROL LİSTESİ" description="Tüm kontrollerin yapılması zorunludur.">
-        <div className="grid grid-cols-1 gap-3">
-          {CHECKLIST_ITEMS.map((item) => (
-            <div key={item.id} className="rounded-xl border bg-card p-3 shadow-sm">
-              <label className="mb-2 block text-sm font-semibold">{item.label}</label>
-              <SegmentToggle
-                options={["Uygun", "Uygun Değil", "Diğer"]}
-                value={data.kontroller[item.id]}
-                onChange={(v) => {
-                  set("kontroller", {
-                    ...data.kontroller,
-                    [item.id]: v as KontrolDurum,
-                  })
-                }}
+      {/* 5. Kontrol listesi */}
+      <Section title="ARAÇ KONTROL LİSTESİ">
+        {CHECKLIST_ITEMS.map((item) => {
+          const madde = data.kontrol[item.id]
+          return (
+            <div key={item.id} className="flex flex-col gap-2">
+              <div className="text-sm font-medium text-foreground">{item.label}</div>
+              <SegmentToggle<KontrolDurum>
+                value={madde.durum}
+                onChange={(v) =>
+                  set("kontrol", { ...data.kontrol, [item.id]: { ...madde, durum: v } })
+                }
+                options={[
+                  { value: "Uygun", label: "Uygun" },
+                  { value: "Uygun Değil", label: "Uygun Değil" },
+                ]}
               />
+              {madde.durum === "Uygun Değil" && (
+                <TextInput
+                  placeholder="Açıklama giriniz"
+                  value={madde.aciklama}
+                  onChange={(e) =>
+                    set("kontrol", { ...data.kontrol, [item.id]: { ...madde, aciklama: e.target.value } })
+                  }
+                />
+              )}
             </div>
-          ))}
-        </div>
+          )
+        })}
       </Section>
 
       {/* 6. Ekipman */}
