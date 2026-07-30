@@ -1,4 +1,4 @@
-import VehicleForm from "@/components/form/vehicle-form" // <-- Süslü parantezleri kaldırdık
+import { VehicleForm } from "@/components/form/vehicle-form"
 
 export default function FormPage() {
   return (
