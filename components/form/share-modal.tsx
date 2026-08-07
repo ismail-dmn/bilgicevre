@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Mail, MessageCircle, Download, X, Check, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { excelFileName } from "@/lib/excel-client"
-import { CORPORATE_WHATSAPP } from "@/lib/form-config"
+import { CORPORATE_WHATSAPP, CORPORATE_EMAIL } from "@/lib/form-config"
 import type { FormData } from "@/lib/form-types"
 
 // Sunucudan doldurulmuş şablonu indir (gerçek Excel şablonu fs erişimi gerektirir).
@@ -71,8 +71,6 @@ export function ShareModal({
   async function handleWhatsapp() {
     setBusy("whatsapp")
     try {
-      // Tarayıcılar WhatsApp'a doğrudan dosya eki gönderemez.
-      // Bu yüzden önce Excel'i indiriyoruz, ardından metinli paylaşım linkini açıyoruz.
       await downloadExcel(data)
       const text = encodeURIComponent(buildWhatsappText(data))
       const base = CORPORATE_WHATSAPP
@@ -88,15 +86,37 @@ export function ShareModal({
     setBusy("email")
     setEmailResult(null)
     try {
-      const res = await fetch("/api/send-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      })
-      const json = await res.json()
-      setEmailResult(json.message || "E-posta işlemi tamamlandı.")
+      // 1. Önce Excel dosyasını otomatik indir
+      await downloadExcel(data)
+
+      // 2. Konu başlığını oluştur: [lokasyon]-YYYY-XXX AYI GÜNLÜK ARAÇ KULLANIMI TAKİP ÇİZELGESİ
+      const tarihStr = data.tarih || new Date().toISOString().slice(0, 10)
+      const [yil, ayNum] = tarihStr.split("-")
+      const AY_ISIMLERI: Record<string, string> = {
+        "01": "OCAK",
+        "02": "ŞUBAT",
+        "03": "MART",
+        "04": "NİSAN",
+        "05": "MAYIS",
+        "06": "HAZİRAN",
+        "07": "TEMMUZ",
+        "08": "AĞUSTOS",
+        "09": "EYLÜL",
+        "10": "EKİM",
+        "11": "KASIM",
+        "12": "ARALIK",
+      }
+      const ayIsmi = AY_ISIMLERI[ayNum] || "AY"
+      const lokasyonPrefix = data.lokasyon ? `${data.lokasyon.toLowerCase()}-` : "istanbul-"
+      const subject = `${lokasyonPrefix}${yil}-${ayIsmi} AYI GÜNLÜK ARAÇ KULLANIMI TAKİP ÇİZELGESİ`.toUpperCase()
+      const body = `Merhaba,\n\nEkte ${fmtTarih(data.tarih)} tarihli günlük araç kullanım formu yer almaktadır.\n\nİyi çalışmalar.`
+
+      const mailtoUrl = `mailto:${CORPORATE_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+      window.location.href = mailtoUrl
+
+      setEmailResult(`Excel dosyası indirildi ve varsayılan e-posta programınız (${CORPORATE_EMAIL}) açıldı. Lütfen indirilen dosyayı e-postaya ekleyiniz.`)
     } catch {
-      setEmailResult("E-posta gönderilemedi. Lütfen tekrar deneyin.")
+      setEmailResult("E-posta istemcisi açılamadı veya dosya indirilemedi.")
     } finally {
       setBusy(null)
     }
@@ -127,7 +147,7 @@ export function ShareModal({
           <ActionButton
             icon={<Mail className="size-5" />}
             label="E-POSTA"
-            desc="Kurumsal adrese Excel eki ile gönder"
+            desc="Excel indirilir, e-posta programı açılır"
             loading={busy === "email"}
             onClick={handleEmail}
           />

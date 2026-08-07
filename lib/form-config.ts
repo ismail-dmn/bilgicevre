@@ -11,9 +11,9 @@ export const DRIVERS_BY_LOCATION: Record<LocationType, readonly string[]> = {
     "EZGİ YILMAZ",
     "KÜBRA ÇOBAN",
     "M. ONUR AĞZITEMİZ",
-    "BİHTER KESKİNEL",
   ],
   "İstanbul": [
+    "BİHTER KESKİNEL",
     "ELMAS MENKEŞ",
     "GAMZE YILDIZ",
     "RABİA AKPINAR",

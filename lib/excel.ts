@@ -103,6 +103,27 @@ export async function buildWorkbook(data: FormData): Promise<ExcelJS.Workbook> {
   const ws = wb.getWorksheet(TEMPLATE_SHEET)
   if (!ws) throw new Error(`Şablonda "${TEMPLATE_SHEET}" sayfası bulunamadı.`)
 
+  // Başlığı (C1 hücresi) tarihe ve lokasyona göre dinamik güncelle: YIL-AYI GÜNLÜK ARAÇ KULLANIMI TAKİP ÇİZELGESİ
+  const tarihStr = data.tarih || new Date().toISOString().slice(0, 10)
+  const [yil, ayNum] = tarihStr.split("-")
+  const AY_ISIMLERI_TR: Record<string, string> = {
+    "01": "OCAK",
+    "02": "ŞUBAT",
+    "03": "MART",
+    "04": "NİSAN",
+    "05": "MAYIS",
+    "06": "HAZİRAN",
+    "07": "TEMMUZ",
+    "08": "AĞUSTOS",
+    "09": "EYLÜL",
+    "10": "EKİM",
+    "11": "KASIM",
+    "12": "ARALIK",
+  }
+  const ayIsmi = AY_ISIMLERI_TR[ayNum] || "AY"
+  const titleText = `${yil}-${ayIsmi} AYI GÜNLÜK ARAÇ KULLANIMI TAKİP ÇİZELGESİ`.toUpperCase()
+  ws.getCell("C1").value = titleText
+
   const row = DATA_ROW
   const set = (col: string, value: string | number) => {
     ws.getCell(`${col}${row}`).value = value
