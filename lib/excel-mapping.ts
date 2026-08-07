@@ -4,29 +4,67 @@ export const DATA_ROW = 12;
 
 // Vercel'deki Turbopack uyarılarını gizlemek için yorum satırı bırakıldı
 export const TEMPLATE_PATH = path.join(/*turbopackIgnore: true*/ process.cwd(), 'data', 'arac-kullanim-sablon.xlsx');
-export const TEMPLATE_SHEET = 'ÇİZELGE';
+export const TEMPLATE_SHEET = 'Sayfa1';
 
 export const CELL_COLUMNS = {
   surucu: "A", 
   tarih: "C", 
-  plaka: "E", 
-  kontrolCamKaporta: "F", 
-  kontrolLastik: "G", 
-  kontrolFarKorna: "H", 
+  plaka: "P", 
+  kontrolCamKaporta: "E", 
+  kontrolLastik: "F", 
+  kontrolFarKorna: "G", 
+  yakitDurumu: "H",
   yakit: "I", 
-  yakitTarih: "J", 
-  guzergah: "K", 
-  personel: "L", 
-  kmBaslangic: "M", 
-  kmBitis: "N", 
-  saat: "O", 
-  imza: "Q",
+  guzergah: "J", 
+  personel: "K", 
+  kmBaslangic: "L", 
+  kmBitis: "M", 
+  saat: "N", 
+  imza: "P",
 } as const;
 
 export const cellAddress = (col: string, row: number) => `${col}${row}`;
 
+function fmtTarih(iso: string): string {
+  if (!iso) return ""
+  const parts = iso.split("-")
+  if (parts.length === 3) {
+    const [y, m, d] = parts
+    return `${d}.${m}.${y}`
+  }
+  return iso
+}
+
 export const mapFormDataToExcel = (worksheet: any, formData: any) => {
-  // Checkbox (Onay kutusu) formatlama fonksiyonu
+  // 1. Dinamik Başlık Güncellemesi (C1 hücresi)
+  const tarihStr = formData.tarih || new Date().toISOString().slice(0, 10)
+  const parts = tarihStr.split("-")
+  if (parts.length >= 2) {
+    const [yil, ayNum] = parts
+    const AY_ISIMLERI_TR: Record<string, string> = {
+      "01": "OCAK",
+      "02": "ŞUBAT",
+      "03": "MART",
+      "04": "NİSAN",
+      "05": "MAYIS",
+      "06": "HAZİRAN",
+      "07": "TEMMUZ",
+      "08": "AĞUSTOS",
+      "09": "EYLÜL",
+      "10": "EKİM",
+      "11": "KASIM",
+      "12": "ARALIK",
+    }
+    const ayIsmi = AY_ISIMLERI_TR[ayNum] || "AY"
+    const titleText = `${yil}-${ayIsmi} AYI GÜNLÜK ARAÇ KULLANIMI TAKİP ÇİZELGESİ`.toUpperCase()
+    worksheet.getCell("C1").value = titleText
+  }
+
+  // 2. Plaka Bilgisi (P7 hücresi)
+  if (formData.plaka) {
+    worksheet.getCell("P7").value = formData.plaka;
+  }
+
   const formatCheck = (madde: any) => {
     if (!madde) return '■ Kontrol Edildi.\n□ Uygun değil.\n□ Diğer…...............';
     if (madde.durum === 'Uygun') return '■ Kontrol Edildi.\n□ Uygun değil.\n□ Diğer…...............';
@@ -34,21 +72,18 @@ export const mapFormDataToExcel = (worksheet: any, formData: any) => {
     return '□ Kontrol Edildi.\n□ Uygun değil.\n□ Diğer…...............';
   };
 
-  // 1. Formdaki seferleri (gidiş-dönüşleri) topla
   const seferler = [];
   if (formData.gidisKm1 || formData.donusKm1) seferler.push({ gidis: formData.gidisKm1, donus: formData.donusKm1 });
   if (formData.gidisKm2 || formData.donusKm2) seferler.push({ gidis: formData.gidisKm2, donus: formData.donusKm2 });
   if (formData.gidisKm3 || formData.donusKm3) seferler.push({ gidis: formData.gidisKm3, donus: formData.donusKm3 });
 
-  // Eğer formu dolduran hiç KM girmemişse bile en az 1 ana satır yazsın
   if (seferler.length === 0) {
     seferler.push({ gidis: '', donus: '' });
   }
 
-  // 2. Her satırda aynı kalacak "Ortak Verileri" bir kez hazırla
   const kontrol = formData.kontrol || {};
-  const camKaportaVal = formatCheck(kontrol['cam_kaporta']);
-  const lastikVal = formatCheck(kontrol['lastikler']);
+  const camKaportaVal = formatCheck(kontrol['cam_kaporta'] || kontrol['camKaporta']);
+  const lastikVal = formatCheck(kontrol['lastikler'] || kontrol['lastik']);
   
   const isFarKornaUygunDegil = 
     kontrol['farlar']?.durum === 'Uygun Değil' || 
@@ -65,28 +100,24 @@ export const mapFormDataToExcel = (worksheet: any, formData: any) => {
       aciklama: farKornaAciklama
   });
 
-  const yakitTarihVal = (formData.yakitAlindi === 'Evet' ? formData.yakitTarihi : '-') || '-';
+  const yakitDurumuVal = formData.yakitAlindi || '';
+  const yakitTarihVal = formData.yakitAlindi === 'Evet' ? fmtTarih(formData.yakitTarihi) : '-';
   const personellerVal = [formData.sofor2, formData.sofor3].filter(Boolean).join(', ');
   const saatVal = `${formData.cikisSaati || '-'} - ${formData.donusSaati || '-'}`;
 
-  // 3. Kaç tane sefer (gidiş-dönüş) varsa Excel'de o kadar alt alta satır oluştur
   seferler.forEach((sefer, index) => {
-    // İlk sefer 12. satıra, 2. sefer 13. satıra, 3. sefer 14. satıra yazılır
     const currentRow = DATA_ROW + index; 
 
-    // Ortak veriler tüm satırlara aynen yazılır
     worksheet.getCell(cellAddress(CELL_COLUMNS.surucu, currentRow)).value = formData.sofor1 || '';
-    worksheet.getCell(cellAddress(CELL_COLUMNS.tarih, currentRow)).value = formData.tarih || '';
-    worksheet.getCell(cellAddress(CELL_COLUMNS.plaka, currentRow)).value = formData.plaka || '';
+    worksheet.getCell(cellAddress(CELL_COLUMNS.tarih, currentRow)).value = fmtTarih(formData.tarih) || '';
     
     worksheet.getCell(cellAddress(CELL_COLUMNS.kontrolCamKaporta, currentRow)).value = camKaportaVal;
     worksheet.getCell(cellAddress(CELL_COLUMNS.kontrolLastik, currentRow)).value = lastikVal;
     worksheet.getCell(cellAddress(CELL_COLUMNS.kontrolFarKorna, currentRow)).value = farKornaVal;
     
-    worksheet.getCell(cellAddress(CELL_COLUMNS.yakit, currentRow)).value = formData.yakitAlindi || '';
-    worksheet.getCell(cellAddress(CELL_COLUMNS.yakitTarih, currentRow)).value = yakitTarihVal;
+    worksheet.getCell(cellAddress(CELL_COLUMNS.yakitDurumu, currentRow)).value = yakitDurumuVal;
+    worksheet.getCell(cellAddress(CELL_COLUMNS.yakit, currentRow)).value = yakitTarihVal;
     
-    // Güzergah metni (Eğer birden fazla sefer varsa sonuna 1. Sefer, 2. Sefer diye not düşer)
     let guzergahMetni = formData.guzergah || '';
     if (seferler.length > 1) {
         guzergahMetni += `\n(${index + 1}. Sefer)`;
@@ -96,8 +127,16 @@ export const mapFormDataToExcel = (worksheet: any, formData: any) => {
     worksheet.getCell(cellAddress(CELL_COLUMNS.personel, currentRow)).value = personellerVal;
     worksheet.getCell(cellAddress(CELL_COLUMNS.saat, currentRow)).value = saatVal;
 
-    // SADECE BU KISIM DEĞİŞİR: İlgili satıra o seferin Gidiş ve Dönüş KM'si yazılır
-    worksheet.getCell(cellAddress(CELL_COLUMNS.kmBaslangic, currentRow)).value = sefer.gidis || '';
-    worksheet.getCell(cellAddress(CELL_COLUMNS.kmBitis, currentRow)).value = sefer.donus || '';
+    const setKm = (col: string, val: string) => {
+      if (!val) {
+        worksheet.getCell(cellAddress(col, currentRow)).value = '';
+        return;
+      }
+      const n = Number(val);
+      worksheet.getCell(cellAddress(col, currentRow)).value = Number.isFinite(n) ? n : val;
+    };
+
+    setKm(CELL_COLUMNS.kmBaslangic, sefer.gidis);
+    setKm(CELL_COLUMNS.kmBitis, sefer.donus);
   });
 };
