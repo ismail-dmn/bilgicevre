@@ -7,14 +7,20 @@ import { excelFileName } from "@/lib/excel-client"
 import { CORPORATE_WHATSAPP, CORPORATE_EMAIL } from "@/lib/form-config"
 import type { FormData } from "@/lib/form-types"
 
-async function downloadExcel(data: FormData): Promise<void> {
+// Sunucudan doldurulmuş şablonu Excel Blob olarak al
+async function fetchExcelBlob(data: FormData): Promise<Blob> {
   const res = await fetch("/api/export-excel", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   })
   if (!res.ok) throw new Error("Excel oluşturulamadı.")
-  const blob = await res.blob()
+  return await res.blob()
+}
+
+// Excel dosyasını cihaza indir
+async function downloadExcel(data: FormData): Promise<void> {
+  const blob = await fetchExcelBlob(data)
   const url = URL.createObjectURL(blob)
   const a = document.createElement("a")
   a.href = url
@@ -44,7 +50,7 @@ function buildWhatsappText(data: FormData): string {
     `Şoför: ${data.sofor1 || "-"}`,
     `Taslak No: ${data.taslakNo}`,
     "",
-    "Günlük araç kullanım formu hazırlanmıştır.",
+    "Günlük araç kullanım formu ekte yer almaktadır.",
   ].join("\n")
 }
 
@@ -58,7 +64,7 @@ export function ShareModal({
   onClose: () => void
 }) {
   const [busy, setBusy] = useState<null | string>(null)
-  const [emailResult, setEmailResult] = useState<string | null>(null)
+  const [actionResult, setActionResult] = useState<string | null>(null)
 
   if (!open) return null
 
@@ -73,13 +79,39 @@ export function ShareModal({
 
   async function handleWhatsapp() {
     setBusy("whatsapp")
+    setActionResult(null)
     try {
+      const blob = await fetchExcelBlob(data)
+      const fileName = excelFileName(data)
+      const file = new File([blob], fileName, { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })
+
+      // Eğer tarayıcı Web Share API (dosya paylaşımı) destekliyorsa doğrudan dosyayı paylaş
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            title: "Günlük Araç Kullanım Formu",
+            text: buildWhatsappText(data),
+            files: [file],
+          })
+          setActionResult("Excel dosyası ve form bilgileri başarıyla paylaşıldı.")
+          return
+        } catch (err) {
+          if ((err as Error).name !== "AbortError") {
+            console.error("Share error:", err)
+          }
+        }
+      }
+
+      // Desteklemiyorsa dosyayı indir ve WhatsApp web bağlantısını aç
       await downloadExcel(data)
       const text = encodeURIComponent(buildWhatsappText(data))
       const base = CORPORATE_WHATSAPP
         ? `https://wa.me/${CORPORATE_WHATSAPP}?text=${text}`
         : `https://wa.me/?text=${text}`
       window.open(base, "_blank", "noopener,noreferrer" )
+      setActionResult("Excel dosyası indirildi. Açılan WhatsApp sohbetinde indirilen Excel dosyasını ek olarak gönderebilirsiniz.")
+    } catch {
+      setActionResult("WhatsApp paylaşımı sırasında bir hata oluştu.")
     } finally {
       setBusy(null)
     }
@@ -87,7 +119,7 @@ export function ShareModal({
 
   async function handleEmail() {
     setBusy("email")
-    setEmailResult(null)
+    setActionResult(null)
     try {
       await downloadExcel(data)
 
@@ -121,9 +153,9 @@ export function ShareModal({
       const mailtoUrl = `mailto:${CORPORATE_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
       window.location.href = mailtoUrl
 
-      setEmailResult(`Excel dosyası indirildi ve ${CORPORATE_EMAIL} adresine yönelik e-posta istemcisi açıldı. İndirilen Excel dosyasını maile ekleyebilirsiniz.`)
+      setActionResult(`Excel dosyası indirildi ve ${CORPORATE_EMAIL} adresine yönelik e-posta istemcisi açıldı. İndirilen Excel dosyasını maile ekleyebilirsiniz.`)
     } catch {
-      setEmailResult("E-posta istemcisi açılırken veya dosya indirilirken bir hata oluştu.")
+      setActionResult("E-posta istemcisi açılırken veya dosya indirilirken bir hata oluştu.")
     } finally {
       setBusy(null)
     }
@@ -161,7 +193,7 @@ export function ShareModal({
           <ActionButton
             icon={<MessageCircle className="size-5" />}
             label="WHATSAPP"
-            desc="Excel indirilir, WhatsApp paylaşımı açılır"
+            desc="Excel dosyasını direkt paylaşır veya indirip WhatsApp'ı açar"
             loading={busy === "whatsapp"}
             onClick={handleWhatsapp}
           />
@@ -174,10 +206,10 @@ export function ShareModal({
           />
         </div>
 
-        {emailResult && (
+        {actionResult && (
           <div className="mt-4 flex items-start gap-2 rounded-xl bg-primary/10 p-3 text-sm text-foreground">
             <Check className="mt-0.5 size-4 shrink-0 text-primary" />
-            <span>{emailResult}</span>
+            <span>{actionResult}</span>
           </div>
         )}
 
