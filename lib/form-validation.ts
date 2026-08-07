@@ -6,6 +6,7 @@ export function validateForm(data: FormData): string[] {
   const errors: string[] = []
   if (data.durum !== "Tamamlandı") return errors
 
+  if (!data.lokasyon) errors.push("Lokasyon (Bölge) seçimi zorunludur.")
   if (!data.tarih) errors.push("Tarih alanı zorunludur.")
   if (!data.plaka) errors.push("Araç / Plaka seçimi zorunludur.")
   if (!data.sofor1) errors.push("Şoför 1 seçimi zorunludur.")

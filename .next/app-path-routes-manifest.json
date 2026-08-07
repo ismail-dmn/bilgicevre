@@ -1,0 +1,9 @@
+{
+  "/_global-error/page": "/_global-error",
+  "/_not-found/page": "/_not-found",
+  "/api/export-excel/route": "/api/export-excel",
+  "/api/send-email/route": "/api/send-email",
+  "/form/page": "/form",
+  "/manifest.webmanifest/route": "/manifest.webmanifest",
+  "/page": "/"
+}

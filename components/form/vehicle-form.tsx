@@ -16,7 +16,7 @@ import {
 import { FormHeader } from "./form-header"
 import { RulesAccordion } from "./rules-accordion"
 import { ShareModal } from "./share-modal"
-import { VEHICLES, DRIVERS, CHECKLIST_ITEMS, EQUIPMENT_ITEMS } from "@/lib/form-config"
+import { VEHICLES, LOCATIONS, DRIVERS_BY_LOCATION, CHECKLIST_ITEMS, EQUIPMENT_ITEMS } from "@/lib/form-config"
 import {
   createEmptyForm,
   generateTaslakNo,
@@ -75,6 +75,11 @@ export function VehicleForm() {
     },
     [],
   )
+
+  const currentDrivers = useMemo(() => {
+    if (!data?.lokasyon) return []
+    return DRIVERS_BY_LOCATION[data.lokasyon as keyof typeof DRIVERS_BY_LOCATION] || []
+  }, [data?.lokasyon])
 
   if (!data) {
     return (
@@ -163,6 +168,33 @@ export function VehicleForm() {
 
       {/* 1. Araç Bilgileri */}
       <Section title="ARAÇ BİLGİLERİ">
+        <Field label="Lokasyon / Bölge" htmlFor="lokasyon" required>
+          <SelectInput
+            id="lokasyon"
+            placeholder="Lokasyon seçiniz"
+            value={data.lokasyon}
+            onChange={(e) => {
+              const newLoc = e.target.value
+              setData((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      lokasyon: newLoc,
+                      sofor1: "",
+                      sofor2: "",
+                      sofor3: "",
+                    }
+                  : prev
+              )
+            }}
+          >
+            {LOCATIONS.map((loc) => (
+              <option key={loc} value={loc}>
+                {loc}
+              </option>
+            ))}
+          </SelectInput>
+        </Field>
         <Field label="Tarih" htmlFor="tarih" required>
           <TextInput id="tarih" type="date" value={data.tarih} onChange={(e) => set("tarih", e.target.value)} />
         </Field>
@@ -176,8 +208,14 @@ export function VehicleForm() {
           </SelectInput>
         </Field>
         <Field label="Şoför 1" htmlFor="sofor1" required>
-          <SelectInput id="sofor1" placeholder="Şoför seçiniz" value={data.sofor1} onChange={(e) => set("sofor1", e.target.value)}>
-            {DRIVERS.map((d) => (
+          <SelectInput
+            id="sofor1"
+            placeholder={data.lokasyon ? "Şoför seçiniz" : "Önce lokasyon seçiniz"}
+            value={data.sofor1}
+            disabled={!data.lokasyon}
+            onChange={(e) => set("sofor1", e.target.value)}
+          >
+            {currentDrivers.map((d) => (
               <option key={d} value={d}>
                 {d}
               </option>
@@ -185,8 +223,14 @@ export function VehicleForm() {
           </SelectInput>
         </Field>
         <Field label="Şoför 2" htmlFor="sofor2" hint="Zorunlu değil">
-          <SelectInput id="sofor2" placeholder="Seçiniz" value={data.sofor2} onChange={(e) => set("sofor2", e.target.value)}>
-            {DRIVERS.map((d) => (
+          <SelectInput
+            id="sofor2"
+            placeholder={data.lokasyon ? "Seçiniz" : "Önce lokasyon seçiniz"}
+            value={data.sofor2}
+            disabled={!data.lokasyon}
+            onChange={(e) => set("sofor2", e.target.value)}
+          >
+            {currentDrivers.map((d) => (
               <option key={d} value={d}>
                 {d}
               </option>
@@ -194,8 +238,14 @@ export function VehicleForm() {
           </SelectInput>
         </Field>
         <Field label="Şoför 3" htmlFor="sofor3" hint="Zorunlu değil">
-          <SelectInput id="sofor3" placeholder="Seçiniz" value={data.sofor3} onChange={(e) => set("sofor3", e.target.value)}>
-            {DRIVERS.map((d) => (
+          <SelectInput
+            id="sofor3"
+            placeholder={data.lokasyon ? "Seçiniz" : "Önce lokasyon seçiniz"}
+            value={data.sofor3}
+            disabled={!data.lokasyon}
+            onChange={(e) => set("sofor3", e.target.value)}
+          >
+            {currentDrivers.map((d) => (
               <option key={d} value={d}>
                 {d}
               </option>

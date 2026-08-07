@@ -1,9 +1,34 @@
 // Merkezi konfigürasyon: araçlar, şoförler, kontrol listesi, ekipmanlar ve kurallar.
 // Bu veriler ileride kolayca veritabanından yönetilebilir hale getirilebilir.
 
-export const VEHICLES = ["34 ABC 123", "34 XYZ 456", "34 DEF 789"] as const
+export const VEHICLES = ["34 KNR 404", "34 SJ 8172", "34 NLB 100", "34 KNG 868"] as const
 
-export const DRIVERS = ["Ahmet Yılmaz", "Mehmet Kaya", "Ali Demir", "Hasan Çelik"] as const
+export const LOCATIONS = ["Tekirdağ", "İstanbul"] as const
+export type LocationType = (typeof LOCATIONS)[number]
+
+export const DRIVERS_BY_LOCATION: Record<LocationType, readonly string[]> = {
+  "Tekirdağ": [
+    "EZGİ YILMAZ",
+    "KÜBRA ÇOBAN",
+    "M. ONUR AĞZITEMİZ",
+    "BİHTER KESKİNEL",
+  ],
+  "İstanbul": [
+    "ELMAS MENKEŞ",
+    "GAMZE YILDIZ",
+    "RABİA AKPINAR",
+    "SEMA ÇÖLLÜ",
+    "SERHAT YOLDA",
+    "SÜMEYYE TOPAL",
+    "VİLDAN BAYRAKTAR",
+  ],
+}
+
+// Geriye dönük uyumluluk için eski DRIVERS listesi (gerekirse)
+export const DRIVERS = [
+  ...DRIVERS_BY_LOCATION["Tekirdağ"],
+  ...DRIVERS_BY_LOCATION["İstanbul"],
+] as const
 
 // Araç kontrol listesi maddeleri
 export const CHECKLIST_ITEMS = [

@@ -1,0 +1,9 @@
+{
+  "/_global-error/page": "app/_global-error/page.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/api/export-excel/route": "app/api/export-excel/route.js",
+  "/api/send-email/route": "app/api/send-email/route.js",
+  "/form/page": "app/form/page.js",
+  "/manifest.webmanifest/route": "app/manifest.webmanifest/route.js",
+  "/page": "app/page.js"
+}

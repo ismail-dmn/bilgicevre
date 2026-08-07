@@ -14,6 +14,7 @@ export interface FormData {
   durum: FormDurum
 
   // Araç bilgileri
+  lokasyon: string // "Tekirdağ" veya "İstanbul"
   tarih: string // YYYY-MM-DD
   plaka: string
   sofor1: string
@@ -58,6 +59,7 @@ export function createEmptyForm(taslakNo: string): FormData {
   return {
     taslakNo,
     durum: "Taslak",
+    lokasyon: "",
     tarih: bugun,
     plaka: "",
     sofor1: "",
