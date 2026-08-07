@@ -107,8 +107,8 @@ export function ShareModal({
         "12": "ARALIK",
       }
       const ayIsmi = AY_ISIMLERI[ayNum] || "AY"
-      const lokasyonPrefix = data.lokasyon ? `${data.lokasyon.toLowerCase()}-` : "istanbul-"
-      const subject = `${lokasyonPrefix}${yil}-${ayIsmi} AYI GÜNLÜK ARAÇ KULLANIMI TAKİP ÇİZELGESİ`.toUpperCase()
+      const lokasyonStr = data.lokasyon ? data.lokasyon.toUpperCase() : "İSTANBUL"
+      const subject = `${lokasyonStr}-${yil}-${ayIsmi} AYI GÜNLÜK ARAÇ KULLANIMI TAKİP ÇİZELGESİ`.toUpperCase()
       const body = `Merhaba,\n\nEkte ${fmtTarih(data.tarih)} tarihli günlük araç kullanım formu yer almaktadır.\n\nİyi çalışmalar.`
 
       const mailtoUrl = `mailto:${CORPORATE_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`

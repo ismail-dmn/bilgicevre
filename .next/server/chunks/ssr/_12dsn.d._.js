@@ -7,7 +7,7 @@ Plaka: ${b.plaka||"-"}
 Şof\xf6r: ${b.sofor1||"-"}
 Taslak No: ${b.taslakNo}
 
-G\xfcnl\xfck ara\xe7 kullanım formu hazırlanmıştır.`),c=`https://wa.me/?text=${a}`;window.open(c,"_blank","noopener,noreferrer")}finally{g(null)}}async function l(){g("email"),i(null);try{await bv(b);let[a,c]=(b.tarih||new Date().toISOString().slice(0,10)).split("-"),d=b.lokasyon?`${b.lokasyon.toLowerCase()}-`:"istanbul-",e=`${d}${a}-${({"01":"OCAK","02":"ŞUBAT","03":"MART","04":"NİSAN","05":"MAYIS","06":"HAZİRAN","07":"TEMMUZ","08":"AĞUSTOS","09":"EYLÜL",10:"EKİM",11:"KASIM",12:"ARALIK"})[c]||"AY"} AYI G\xdcNL\xdcK ARA\xc7 KULLANIMI TAKİP \xc7İZELGESİ`.toUpperCase(),f=`Merhaba,
+G\xfcnl\xfck ara\xe7 kullanım formu hazırlanmıştır.`),c=`https://wa.me/?text=${a}`;window.open(c,"_blank","noopener,noreferrer")}finally{g(null)}}async function l(){g("email"),i(null);try{await bv(b);let[a,c]=(b.tarih||new Date().toISOString().slice(0,10)).split("-"),d=b.lokasyon?b.lokasyon.toUpperCase():"İSTANBUL",e=`${d}-${a}-${({"01":"OCAK","02":"ŞUBAT","03":"MART","04":"NİSAN","05":"MAYIS","06":"HAZİRAN","07":"TEMMUZ","08":"AĞUSTOS","09":"EYLÜL",10:"EKİM",11:"KASIM",12:"ARALIK"})[c]||"AY"} AYI G\xdcNL\xdcK ARA\xc7 KULLANIMI TAKİP \xc7İZELGESİ`.toUpperCase(),f=`Merhaba,
 
 Ekte ${bw(b.tarih)} tarihli g\xfcnl\xfck ara\xe7 kullanım formu yer almaktadır.
 
