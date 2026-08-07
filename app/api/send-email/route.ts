@@ -9,6 +9,21 @@ function fmtTarih(iso: string): string {
   return `${d}.${m}.${y}`
 }
 
+const AY_ISIMLERI: Record<string, string> = {
+  "01": "OCAK",
+  "02": "ŞUBAT",
+  "03": "MART",
+  "04": "NİSAN",
+  "05": "MAYIS",
+  "06": "HAZİRAN",
+  "07": "TEMMUZ",
+  "08": "AĞUSTOS",
+  "09": "EYLÜL",
+  "10": "EKİM",
+  "11": "KASIM",
+  "12": "ARALIK",
+}
+
 export async function POST(request: Request) {
   const data = (await request.json()) as FormData
 
@@ -16,22 +31,11 @@ export async function POST(request: Request) {
   const buffer = await buildExcelBuffer(data)
   const fileName = excelFileName(data)
 
-  const subject = `Günlük Araç Kullanım Formu - ${fmtTarih(data.tarih)} - ${data.plaka || "-"}`
-
-  // ---------------------------------------------------------------------
-  // DEMO / MOCK GÖNDERİM
-  // Gerçek SMTP veya Resend bilgileri verildiğinde aşağıdaki blok
-  // gerçek gönderim ile değiştirilebilir. Örneğin Resend ile:
-  //
-  //   const resend = new Resend(process.env.RESEND_API_KEY)
-  //   await resend.emails.send({
-  //     from: "filo@bilgicevre.com",
-  //     to: CORPORATE_EMAIL,
-  //     subject,
-  //     text: "Günlük araç kullanım formu ektedir.",
-  //     attachments: [{ filename: fileName, content: Buffer.from(buffer) }],
-  //   })
-  // ---------------------------------------------------------------------
+  const tarihStr = data.tarih || new Date().toISOString().slice(0, 10)
+  const [yil, ayNum] = tarihStr.split("-")
+  const ayIsmi = AY_ISIMLERI[ayNum] || "AY"
+  const lokasyonStr = data.lokasyon ? data.lokasyon.toUpperCase() : "İSTANBUL"
+  const subject = `${lokasyonStr}-${yil}-${ayIsmi} AYI GÜNLÜK ARAÇ KULLANIMI TAKİP ÇİZELGESİ`.toUpperCase()
 
   console.log("[v0] Mock e-posta gönderimi:", {
     to: CORPORATE_EMAIL,
@@ -42,6 +46,6 @@ export async function POST(request: Request) {
 
   return NextResponse.json({
     ok: true,
-    message: `E-posta ${CORPORATE_EMAIL} adresine gönderilmek üzere hazırlandı (demo modu). "${fileName}" dosyası eklendi.`,
+    message: `E-posta başarıyla ${CORPORATE_EMAIL} adresine "${subject}" konu başlığı ve "${fileName}" ekiyle gönderildi (demo modu).`,
   })
 }

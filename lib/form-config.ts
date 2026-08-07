@@ -76,7 +76,7 @@ export const USAGE_RULES = [
 ] as const
 
 // E-posta ayarları (ileride SMTP / Resend ile değiştirilebilir)
-export const CORPORATE_EMAIL = "filo@bilgicevre.com"
+export const CORPORATE_EMAIL = "gamze@bilgicevre.com.tr"
 
 // WhatsApp paylaşımı için kurumsal numara (opsiyonel, boş bırakılabilir)
 export const CORPORATE_WHATSAPP = ""

@@ -86,10 +86,18 @@ export function ShareModal({
     setBusy("email")
     setEmailResult(null)
     try {
-      // 1. Önce Excel dosyasını otomatik indir
+      // 1. Excel dosyasını otomatik indir (kullanıcıya ek olarak sunmak için)
       await downloadExcel(data)
 
-      // 2. Konu başlığını oluştur: [lokasyon]-YYYY-XXX AYI GÜNLÜK ARAÇ KULLANIMI TAKİP ÇİZELGESİ
+      // 2. Sunucuya e-posta gönderim isteği at
+      const res = await fetch("/api/send-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      })
+      const json = await res.json()
+
+      // 3. Konu başlığı ile mailto da aç (görseldeki gibi doğrudan posta istemcisinde ekli/hazır gelmesi için)
       const tarihStr = data.tarih || new Date().toISOString().slice(0, 10)
       const [yil, ayNum] = tarihStr.split("-")
       const AY_ISIMLERI: Record<string, string> = {
@@ -112,11 +120,11 @@ export function ShareModal({
       const body = `Merhaba,\n\nEkte ${fmtTarih(data.tarih)} tarihli günlük araç kullanım formu yer almaktadır.\n\nİyi çalışmalar.`
 
       const mailtoUrl = `mailto:${CORPORATE_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
-      window.location.href = mailtoUrl
+      window.open(mailtoUrl, "_blank")
 
-      setEmailResult(`Excel dosyası indirildi ve varsayılan e-posta programınız (${CORPORATE_EMAIL}) açıldı. Lütfen indirilen dosyayı e-postaya ekleyiniz.`)
+      setEmailResult(json.message || `E-posta ${CORPORATE_EMAIL} adresine ve konu başlığıyla hazırlandı. Excel dosyası indirildi.`)
     } catch {
-      setEmailResult("E-posta istemcisi açılamadı veya dosya indirilemedi.")
+      setEmailResult("E-posta gönderilemedi veya dosya indirilemedi.")
     } finally {
       setBusy(null)
     }
@@ -147,7 +155,7 @@ export function ShareModal({
           <ActionButton
             icon={<Mail className="size-5" />}
             label="E-POSTA"
-            desc="Excel indirilir, e-posta programı açılır"
+            desc={`${CORPORATE_EMAIL} adresine Excel ekiyle gönder`}
             loading={busy === "email"}
             onClick={handleEmail}
           />
