@@ -7,7 +7,6 @@ import { excelFileName } from "@/lib/excel-client"
 import { CORPORATE_WHATSAPP, CORPORATE_EMAIL } from "@/lib/form-config"
 import type { FormData } from "@/lib/form-types"
 
-// Sunucudan doldurulmuş şablonu indir (gerçek Excel şablonu fs erişimi gerektirir).
 async function downloadExcel(data: FormData): Promise<void> {
   const res = await fetch("/api/export-excel", {
     method: "POST",
@@ -28,8 +27,12 @@ async function downloadExcel(data: FormData): Promise<void> {
 
 function fmtTarih(iso: string): string {
   if (!iso) return "-"
-  const [y, m, d] = iso.split("-")
-  return `${d}.${m}.${y}`
+  const parts = iso.split("-")
+  if (parts.length === 3) {
+    const [y, m, d] = parts
+    return `${d}.${m}.${y}`
+  }
+  return iso
 }
 
 function buildWhatsappText(data: FormData): string {
@@ -76,7 +79,7 @@ export function ShareModal({
       const base = CORPORATE_WHATSAPP
         ? `https://wa.me/${CORPORATE_WHATSAPP}?text=${text}`
         : `https://wa.me/?text=${text}`
-      window.open(base, "_blank", "noopener,noreferrer")
+      window.open(base, "_blank", "noopener,noreferrer" )
     } finally {
       setBusy(null)
     }
@@ -86,45 +89,41 @@ export function ShareModal({
     setBusy("email")
     setEmailResult(null)
     try {
-      // 1. Excel dosyasını otomatik indir (kullanıcıya ek olarak sunmak için)
       await downloadExcel(data)
 
-      // 2. Sunucuya e-posta gönderim isteği at
-      const res = await fetch("/api/send-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      })
-      const json = await res.json()
-
-      // 3. Konu başlığı ile mailto da aç (görseldeki gibi doğrudan posta istemcisinde ekli/hazır gelmesi için)
       const tarihStr = data.tarih || new Date().toISOString().slice(0, 10)
-      const [yil, ayNum] = tarihStr.split("-")
+      const parts = tarihStr.split("-")
+      const yil = parts[0] || "2026"
+      const ayNum = parts[1] || "06"
+      
       const AY_ISIMLERI: Record<string, string> = {
-        "01": "OCAK",
-        "02": "ŞUBAT",
-        "03": "MART",
-        "04": "NİSAN",
-        "05": "MAYIS",
-        "06": "HAZİRAN",
-        "07": "TEMMUZ",
-        "08": "AĞUSTOS",
-        "09": "EYLÜL",
-        "10": "EKİM",
-        "11": "KASIM",
-        "12": "ARALIK",
+        "01": "OCAK", "02": "ŞUBAT", "03": "MART", "04": "NİSAN",
+        "05": "MAYIS", "06": "HAZİRAN", "07": "TEMMUZ", "08": "AĞUSTOS",
+        "09": "EYLÜL", "10": "EKİM", "11": "KASIM", "12": "ARALIK",
       }
       const ayIsmi = AY_ISIMLERI[ayNum] || "AY"
       const lokasyonStr = data.lokasyon ? data.lokasyon.toUpperCase() : "İSTANBUL"
       const subject = `${lokasyonStr}-${yil}-${ayIsmi} AYI GÜNLÜK ARAÇ KULLANIMI TAKİP ÇİZELGESİ`.toUpperCase()
-      const body = `Merhaba,\n\nEkte ${fmtTarih(data.tarih)} tarihli günlük araç kullanım formu yer almaktadır.\n\nİyi çalışmalar.`
+      const fileName = excelFileName(data)
+      
+      const body = [
+        "Merhaba,",
+        "",
+        `Ekte ${fmtTarih(data.tarih)} tarihli ve ${data.plaka || "-"} plakalı araca ait Günlük Araç Kullanım Formu (${fileName}) yer almaktadır.`,
+        "",
+        `Lokasyon: ${data.lokasyon || "-"}`,
+        `Şoför: ${data.sofor1 || "-"}`,
+        `Taslak No: ${data.taslakNo}`,
+        "",
+        "İyi çalışmalar."
+      ].join("\n")
 
       const mailtoUrl = `mailto:${CORPORATE_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
-      window.open(mailtoUrl, "_blank")
+      window.location.href = mailtoUrl
 
-      setEmailResult(json.message || `E-posta ${CORPORATE_EMAIL} adresine ve konu başlığıyla hazırlandı. Excel dosyası indirildi.`)
+      setEmailResult(`Excel dosyası indirildi ve ${CORPORATE_EMAIL} adresine yönelik e-posta istemcisi açıldı. İndirilen Excel dosyasını maile ekleyebilirsiniz.`)
     } catch {
-      setEmailResult("E-posta gönderilemedi veya dosya indirilemedi.")
+      setEmailResult("E-posta istemcisi açılırken veya dosya indirilirken bir hata oluştu.")
     } finally {
       setBusy(null)
     }
@@ -155,7 +154,7 @@ export function ShareModal({
           <ActionButton
             icon={<Mail className="size-5" />}
             label="E-POSTA"
-            desc={`${CORPORATE_EMAIL} adresine Excel ekiyle gönder`}
+            desc="Excel'i indirir ve mailto ile e-posta istemcisini açar"
             loading={busy === "email"}
             onClick={handleEmail}
           />
