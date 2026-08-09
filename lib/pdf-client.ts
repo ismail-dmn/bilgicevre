@@ -14,47 +14,51 @@ function fmtTarih(iso: string): string {
 }
 
 export async function generatePDF(data: FormData): Promise<Blob> {
+  // jsPDF standard fonts have issues with Turkish characters. 
+  // We'll use a trick to replace them with similar looking characters if needed,
+  // or just use them and hope the environment supports it (standard in modern browsers).
   const doc = new jsPDF()
   
   // Title
   const tarihStr = data.tarih || new Date().toISOString().slice(0, 10)
   const [yil, ayNum] = tarihStr.split("-")
   const AY_ISIMLERI_TR: Record<string, string> = {
-    "01": "OCAK", "02": "ŞUBAT", "03": "MART", "04": "NİSAN",
-    "05": "MAYIS", "06": "HAZİRAN", "07": "TEMMUZ", "08": "AĞUSTOS",
-    "09": "EYLÜL", "10": "EKİM", "11": "KASIM", "12": "ARALIK",
+    "01": "OCAK", "02": "SUBAT", "03": "MART", "04": "NISAN",
+    "05": "MAYIS", "06": "HAZIRAN", "07": "TEMMUZ", "08": "AGUSTOS",
+    "09": "EYLUL", "10": "EKIM", "11": "KASIM", "12": "ARALIK",
   }
   const ayIsmi = AY_ISIMLERI_TR[ayNum] || "AY"
-  const titleText = `${yil}-${ayIsmi} AYI GÜNLÜK ARAÇ KULLANIMI TAKİP ÇİZELGESİ`
+  const titleText = `${yil}-${ayIsmi} AYI GUNLUK ARAC KULLANIMI TAKIP CIZELGESI`
   
-  doc.setFontSize(14)
-  doc.text("BİLGİÇEVRE", 105, 15, { align: "center" })
-  doc.setFontSize(12)
-  doc.text(titleText, 105, 25, { align: "center" })
+  doc.setFontSize(16)
+  doc.setTextColor(44, 62, 80)
+  doc.text("BILGICEVRE", 105, 15, { align: "center" })
+  
+  doc.setFontSize(11)
+  doc.text(titleText, 105, 22, { align: "center" })
   
   // Basic Info Table
   const basicInfo = [
     ["Tarih", fmtTarih(data.tarih), "Plaka", data.plaka || "-"],
-    ["Şoför", data.sofor1 || "-", "Taslak No", data.taslakNo || "-"]
+    ["Sofor", data.sofor1 || "-", "Taslak No", data.taslakNo || "-"]
   ]
   
   autoTable(doc, {
-    startY: 35,
-    head: [],
+    startY: 30,
     body: basicInfo,
     theme: "grid",
-    styles: { fontSize: 10, cellPadding: 2 },
+    styles: { fontSize: 10, cellPadding: 3, lineColor: [189, 195, 199] },
     columnStyles: {
-      0: { fontStyle: "bold", cellWidth: 30 },
+      0: { fontStyle: "bold", cellWidth: 35, fillColor: [245, 245, 245] },
       1: { cellWidth: 60 },
-      2: { fontStyle: "bold", cellWidth: 30 },
+      2: { fontStyle: "bold", cellWidth: 35, fillColor: [245, 245, 245] },
       3: { cellWidth: 60 }
     }
   })
   
   // Controls Table
   const controls = [
-    ["Kontrol Maddesi", "Durum", "Açıklama"],
+    ["Kontrol Maddesi", "Durum", "Aciklama"],
     ["Cam / Kaporta", data.kontrol["cam_kaporta"]?.durum || "Uygun", data.kontrol["cam_kaporta"]?.aciklama || "-"],
     ["Lastikler", data.kontrol["lastikler"]?.durum || "Uygun", data.kontrol["lastikler"]?.aciklama || "-"],
     ["Farlar", data.kontrol["farlar"]?.durum || "Uygun", data.kontrol["farlar"]?.aciklama || "-"],
@@ -64,28 +68,29 @@ export async function generatePDF(data: FormData): Promise<Blob> {
   ]
   
   autoTable(doc, {
-    startY: (doc as any).lastAutoTable.finalY + 10,
+    startY: (doc as any).lastAutoTable.finalY + 8,
     head: [controls[0]],
     body: controls.slice(1),
     theme: "striped",
-    styles: { fontSize: 9 },
-    headStyles: { fillColor: [41, 128, 185], textColor: 255 }
+    styles: { fontSize: 9, cellPadding: 2 },
+    headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: "bold" },
+    alternateRowStyles: { fillColor: [245, 249, 253] }
   })
   
   // KM and Route
   const kmInfo = [
-    ["KM Başlangıç", data.gidisKm1 || "-", "KM Bitiş", data.donusKm3 || data.gidisKm3 || data.donusKm2 || data.gidisKm2 || data.donusKm1 || "-"],
-    ["Çıkış Saati", data.cikisSaati || "-", "Dönüş Saati", data.donusSaati || "-"]
+    ["KM Baslangic", data.gidisKm1 || "-", "KM Bitis", data.donusKm3 || data.gidisKm3 || data.donusKm2 || data.gidisKm2 || data.donusKm1 || "-"],
+    ["Cikis Saati", data.cikisSaati || "-", "Donus Saati", data.donusSaati || "-"]
   ]
   
   autoTable(doc, {
-    startY: (doc as any).lastAutoTable.finalY + 10,
+    startY: (doc as any).lastAutoTable.finalY + 8,
     body: kmInfo,
     theme: "grid",
-    styles: { fontSize: 9 },
+    styles: { fontSize: 9, cellPadding: 3 },
     columnStyles: {
-      0: { fontStyle: "bold" },
-      2: { fontStyle: "bold" }
+      0: { fontStyle: "bold", cellWidth: 35, fillColor: [245, 245, 245] },
+      2: { fontStyle: "bold", cellWidth: 35, fillColor: [245, 245, 245] }
     }
   })
   
@@ -94,36 +99,42 @@ export async function generatePDF(data: FormData): Promise<Blob> {
   const eksikEkipman = EQUIPMENT_ITEMS.filter(e => !data.ekipman[e.id]).map(e => e.label).join(", ") || "Yok"
   
   autoTable(doc, {
-    startY: (doc as any).lastAutoTable.finalY + 10,
+    startY: (doc as any).lastAutoTable.finalY + 8,
     body: [
-      ["Güzergah", guzergah],
+      ["Guzergah", guzergah],
       ["Eksik Ekipman", eksikEkipman],
-      ["Diğer Personel", [data.sofor2, data.sofor3].filter(Boolean).join(", ") || "-"]
+      ["Diger Personel", [data.sofor2, data.sofor3].filter(Boolean).join(", ") || "-"]
     ],
     theme: "grid",
-    styles: { fontSize: 9 },
+    styles: { fontSize: 9, cellPadding: 3 },
     columnStyles: {
-      0: { fontStyle: "bold", cellWidth: 40 }
+      0: { fontStyle: "bold", cellWidth: 35, fillColor: [245, 245, 245] }
     }
   })
   
   // Fuel
   autoTable(doc, {
-    startY: (doc as any).lastAutoTable.finalY + 10,
+    startY: (doc as any).lastAutoTable.finalY + 8,
     body: [
-      ["Yakıt Alındı mı?", data.yakitAlindi || "Hayır", "Yakıt Tarihi", data.yakitAlindi === "Evet" ? fmtTarih(data.yakitTarihi) : "-"]
+      ["Yakit Alindi mi?", data.yakitAlindi || "Hayir", "Yakit Tarihi", data.yakitAlindi === "Evet" ? fmtTarih(data.yakitTarihi) : "-"]
     ],
     theme: "grid",
-    styles: { fontSize: 9 },
+    styles: { fontSize: 9, cellPadding: 3 },
     columnStyles: {
-      0: { fontStyle: "bold" },
-      2: { fontStyle: "bold" }
+      0: { fontStyle: "bold", cellWidth: 35, fillColor: [245, 245, 245] },
+      2: { fontStyle: "bold", cellWidth: 35, fillColor: [245, 245, 245] }
     }
   })
   
   // Footer
+  const finalY = (doc as any).lastAutoTable.finalY
   doc.setFontSize(10)
-  doc.text("İmza:", 150, (doc as any).lastAutoTable.finalY + 20)
+  doc.setTextColor(100)
+  doc.text("Imza:", 160, finalY + 20)
+  
+  // Draw a line for signature
+  doc.setDrawColor(200)
+  doc.line(150, finalY + 25, 190, finalY + 25)
   
   return doc.output("blob")
 }
