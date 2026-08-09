@@ -1,10 +1,11 @@
 "use client"
 
 import { useState } from "react"
-import { Mail, MessageCircle, Download, X, Check, Loader2 } from "lucide-react"
+import { Mail, MessageCircle, Download, X, Check, Loader2, Copy } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { excelFileName } from "@/lib/excel-client"
-import { CORPORATE_WHATSAPP, CORPORATE_EMAIL } from "@/lib/form-config"
+import { generatePDF, pdfFileName } from "@/lib/pdf-client"
+import { CORPORATE_WHATSAPP, CORPORATE_EMAIL, EQUIPMENT_ITEMS } from "@/lib/form-config"
 import type { FormData } from "@/lib/form-types"
 
 // Sunucudan doldurulmuş şablonu Excel Blob olarak al
@@ -117,11 +118,96 @@ export function ShareModal({
     }
   }
 
+  function buildEmailBody(data: FormData): string {
+    const eksik = EQUIPMENT_ITEMS.filter((e) => !data.ekipman[e.id]).map((e) => e.label)
+    
+    return [
+      "BİLGİÇEVRE GÜNLÜK ARAÇ KULLANIM FORMU",
+      "------------------------------------------",
+      `Tarih: ${fmtTarih(data.tarih)}`,
+      `Plaka: ${data.plaka || "-"}`,
+      `Lokasyon: ${data.lokasyon || "-"}`,
+      `Şoför: ${data.sofor1 || "-"}`,
+      `Diğer Personel: ${[data.sofor2, data.sofor3].filter(Boolean).join(", ") || "-"}`,
+      `Taslak No: ${data.taslakNo}`,
+      "",
+      "ARAÇ KONTROL BİLGİLERİ:",
+      `- Cam/Kaporta: ${data.kontrol["cam_kaporta"]?.durum || "Uygun"} ${data.kontrol["cam_kaporta"]?.aciklama ? `(${data.kontrol["cam_kaporta"].aciklama})` : ""}`,
+      `- Lastikler: ${data.kontrol["lastikler"]?.durum || "Uygun"} ${data.kontrol["lastikler"]?.aciklama ? `(${data.kontrol["lastikler"].aciklama})` : ""}`,
+      `- Farlar/Korna/Silecek/Cam: ${data.kontrol["farlar"]?.durum || "Uygun"}, ${data.kontrol["korna"]?.durum || "Uygun"}, ${data.kontrol["silecek"]?.durum || "Uygun"}, ${data.kontrol["camlar"]?.durum || "Uygun"}`,
+      "",
+      "KM VE GÜZERGAH:",
+      `- Çıkış Saati: ${data.cikisSaati || "-"}`,
+      `- Dönüş Saati: ${data.donusSaati || "-"}`,
+      `- Başlangıç KM: ${data.gidisKm1 || "-"}`,
+      `- Bitiş KM: ${data.donusKm3 || data.gidisKm3 || data.donusKm2 || data.gidisKm2 || data.donusKm1 || "-"}`,
+      `- Güzergah: ${data.guzergah || "-"}`,
+      `- Eksik Ekipman: ${eksik.length ? eksik.join(", ") : "Yok"}`,
+      "",
+      "YAKIT BİLGİSİ:",
+      `- Yakıt Alındı mı?: ${data.yakitAlindi || "Hayır"}`,
+      data.yakitAlindi === "Evet" ? `- Yakıt Tarihi: ${fmtTarih(data.yakitTarihi)}` : "",
+      "",
+      "İyi çalışmalar."
+    ].filter(line => line !== "").join("\n")
+  }
+
+  async function handlePDF() {
+    setBusy("pdf")
+    setActionResult(null)
+    try {
+      const blob = await generatePDF(data)
+      const fileName = pdfFileName(data)
+      const file = new File([blob], fileName, { type: "application/pdf" })
+
+      // Paylaşım desteği varsa
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            title: "Günlük Araç Kullanım Formu (PDF)",
+            text: "Günlük araç kullanım formu PDF formatında ekte yer almaktadır.",
+            files: [file],
+          })
+          setActionResult("PDF dosyası başarıyla paylaşıldı.")
+          return
+        } catch (err) {
+          if ((err as Error).name !== "AbortError") console.error("PDF Share error:", err)
+        }
+      }
+
+      // Destek yoksa indir
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = fileName
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      setActionResult("PDF dosyası indirildi.")
+    } catch (err) {
+      console.error(err)
+      setActionResult("PDF oluşturulurken bir hata oluştu.")
+    } finally {
+      setBusy(null)
+    }
+  }
+
   async function handleEmail() {
     setBusy("email")
     setActionResult(null)
     try {
-      await downloadExcel(data)
+      // PDF'i oluştur ve indir (kullanıcıya kolaylık olsun diye)
+      const pdfBlob = await generatePDF(data)
+      const pdfName = pdfFileName(data)
+      const url = URL.createObjectURL(pdfBlob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = pdfName
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
 
       const tarihStr = data.tarih || new Date().toISOString().slice(0, 10)
       const parts = tarihStr.split("-")
@@ -136,26 +222,28 @@ export function ShareModal({
       const ayIsmi = AY_ISIMLERI[ayNum] || "AY"
       const lokasyonStr = data.lokasyon ? data.lokasyon.toUpperCase() : "İSTANBUL"
       const subject = `${lokasyonStr}-${yil}-${ayIsmi} AYI GÜNLÜK ARAÇ KULLANIMI TAKİP ÇİZELGESİ`.toUpperCase()
-      const fileName = excelFileName(data)
       
-      const body = [
-        "Merhaba,",
-        "",
-        `Ekte ${fmtTarih(data.tarih)} tarihli ve ${data.plaka || "-"} plakalı araca ait Günlük Araç Kullanım Formu (${fileName}) yer almaktadır.`,
-        "",
-        `Lokasyon: ${data.lokasyon || "-"}`,
-        `Şoför: ${data.sofor1 || "-"}`,
-        `Taslak No: ${data.taslakNo}`,
-        "",
-        "İyi çalışmalar."
-      ].join("\n")
+      const body = buildEmailBody(data)
 
       const mailtoUrl = `mailto:${CORPORATE_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
       window.location.href = mailtoUrl
 
-      setActionResult(`Excel dosyası indirildi ve ${CORPORATE_EMAIL} adresine yönelik e-posta istemcisi açıldı. İndirilen Excel dosyasını maile ekleyebilirsiniz.`)
+      setActionResult(`PDF dosyası indirildi ve form verileriyle e-posta istemcisi açıldı. İndirilen PDF'i maile ekleyebilirsiniz.`)
     } catch {
-      setActionResult("E-posta istemcisi açılırken veya dosya indirilirken bir hata oluştu.")
+      setActionResult("E-posta istemcisi açılırken veya dosya oluşturulurken bir hata oluştu.")
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  async function handleCopy() {
+    setBusy("copy")
+    try {
+      const text = buildEmailBody(data)
+      await navigator.clipboard.writeText(text)
+      setActionResult("Form verileri metin olarak panoya kopyalandı.")
+    } catch {
+      setActionResult("Kopyalama sırasında bir hata oluştu.")
     } finally {
       setBusy(null)
     }
@@ -186,9 +274,16 @@ export function ShareModal({
           <ActionButton
             icon={<Mail className="size-5" />}
             label="E-POSTA"
-            desc="Excel'i indirir ve mailto ile e-posta istemcisini açar"
+            desc="PDF'i indirir ve form verileriyle e-posta istemcisini açar"
             loading={busy === "email"}
             onClick={handleEmail}
+          />
+          <ActionButton
+            icon={<Download className="size-5" />}
+            label="PDF OLARAK İNDİR"
+            desc="Doldurulmuş formu PDF formatında indir veya paylaş"
+            loading={busy === "pdf"}
+            onClick={handlePDF}
           />
           <ActionButton
             icon={<MessageCircle className="size-5" />}
@@ -196,6 +291,13 @@ export function ShareModal({
             desc="Excel dosyasını direkt paylaşır veya indirip WhatsApp'ı açar"
             loading={busy === "whatsapp"}
             onClick={handleWhatsapp}
+          />
+          <ActionButton
+            icon={<Copy className="size-5" />}
+            label="FORM METNİNİ KOPYALA"
+            desc="Tüm form verilerini metin olarak panoya kopyala"
+            loading={busy === "copy"}
+            onClick={handleCopy}
           />
           <ActionButton
             icon={<Download className="size-5" />}
