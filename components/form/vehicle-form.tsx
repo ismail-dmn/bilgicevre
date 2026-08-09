@@ -101,40 +101,9 @@ export function VehicleForm() {
     if (data!.durum === "Taslak") {
       setToast("Taslak olarak kaydedildi.")
     } else {
-      // Gönderildi durumunda Excel Çıktısını Al
-      setIsExporting(true)
-      try {
-        const response = await fetch('/api/export-excel', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(data!),
-        });
-
-        if (!response.ok) {
-          throw new Error('Dosya indirilemedi');
-        }
-
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `Arac_Kullanim_${data!.plaka || 'Form'}.xlsx`;
-        document.body.appendChild(a);
-        a.click();
-        
-        a.remove();
-        window.URL.revokeObjectURL(url);
-
-        setToast("Form başarıyla Excel olarak indirildi!");
-        setShareOpen(true); 
-      } catch (error) {
-        console.error("Hata:", error);
-        alert("Excel oluşturulurken bir hata oluştu.");
-      } finally {
-        setIsExporting(false)
-      }
+      // Gönderildi durumunda Paylaşım Seçeneklerini Göster
+      setToast("Form hazırlandı. Gönderim seçeneklerini seçin.");
+      setShareOpen(true);
     }
   }
 
