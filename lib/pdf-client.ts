@@ -1,14 +1,7 @@
 import { jsPDF } from "jspdf"
-import "jspdf-autotable"
+import autoTable from "jspdf-autotable"
 import type { FormData } from "./form-types"
 import { CHECKLIST_ITEMS, EQUIPMENT_ITEMS } from "./form-config"
-
-// jsPDF types for autotable
-declare module "jspdf" {
-  interface jsPDF {
-    autoTable: (options: any) => jsPDF
-  }
-}
 
 function fmtTarih(iso: string): string {
   if (!iso) return "-"
@@ -45,7 +38,7 @@ export async function generatePDF(data: FormData): Promise<Blob> {
     ["Şoför", data.sofor1 || "-", "Taslak No", data.taslakNo || "-"]
   ]
   
-  doc.autoTable({
+  autoTable(doc, {
     startY: 35,
     head: [],
     body: basicInfo,
@@ -70,7 +63,7 @@ export async function generatePDF(data: FormData): Promise<Blob> {
     ["Camlar", data.kontrol["camlar"]?.durum || "Uygun", data.kontrol["camlar"]?.aciklama || "-"]
   ]
   
-  doc.autoTable({
+  autoTable(doc, {
     startY: (doc as any).lastAutoTable.finalY + 10,
     head: [controls[0]],
     body: controls.slice(1),
@@ -85,7 +78,7 @@ export async function generatePDF(data: FormData): Promise<Blob> {
     ["Çıkış Saati", data.cikisSaati || "-", "Dönüş Saati", data.donusSaati || "-"]
   ]
   
-  doc.autoTable({
+  autoTable(doc, {
     startY: (doc as any).lastAutoTable.finalY + 10,
     body: kmInfo,
     theme: "grid",
@@ -100,7 +93,7 @@ export async function generatePDF(data: FormData): Promise<Blob> {
   const guzergah = data.guzergah || "-"
   const eksikEkipman = EQUIPMENT_ITEMS.filter(e => !data.ekipman[e.id]).map(e => e.label).join(", ") || "Yok"
   
-  doc.autoTable({
+  autoTable(doc, {
     startY: (doc as any).lastAutoTable.finalY + 10,
     body: [
       ["Güzergah", guzergah],
@@ -115,7 +108,7 @@ export async function generatePDF(data: FormData): Promise<Blob> {
   })
   
   // Fuel
-  doc.autoTable({
+  autoTable(doc, {
     startY: (doc as any).lastAutoTable.finalY + 10,
     body: [
       ["Yakıt Alındı mı?", data.yakitAlindi || "Hayır", "Yakıt Tarihi", data.yakitAlindi === "Evet" ? fmtTarih(data.yakitTarihi) : "-"]
