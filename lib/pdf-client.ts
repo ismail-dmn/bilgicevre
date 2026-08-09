@@ -2,6 +2,7 @@ import { jsPDF } from "jspdf"
 import autoTable from "jspdf-autotable"
 import type { FormData } from "./form-types"
 import { CHECKLIST_ITEMS, EQUIPMENT_ITEMS } from "./form-config"
+import { ROBOTO_REGULAR_B64 } from "./font-data"
 
 function fmtTarih(iso: string): string {
   if (!iso) return "-"
@@ -14,127 +15,104 @@ function fmtTarih(iso: string): string {
 }
 
 export async function generatePDF(data: FormData): Promise<Blob> {
-  // jsPDF standard fonts have issues with Turkish characters. 
-  // We'll use a trick to replace them with similar looking characters if needed,
-  // or just use them and hope the environment supports it (standard in modern browsers).
-  const doc = new jsPDF()
+  const doc = new jsPDF({ orientation: 'landscape' })
   
+  // Add Turkish Font
+  doc.addFileToVFS("Roboto-Regular.ttf", ROBOTO_REGULAR_B64)
+  doc.addFont("Roboto-Regular.ttf", "Roboto", "normal")
+  doc.setFont("Roboto")
+
   // Title
   const tarihStr = data.tarih || new Date().toISOString().slice(0, 10)
   const [yil, ayNum] = tarihStr.split("-")
   const AY_ISIMLERI_TR: Record<string, string> = {
-    "01": "OCAK", "02": "SUBAT", "03": "MART", "04": "NISAN",
-    "05": "MAYIS", "06": "HAZIRAN", "07": "TEMMUZ", "08": "AGUSTOS",
-    "09": "EYLUL", "10": "EKIM", "11": "KASIM", "12": "ARALIK",
+    "01": "OCAK", "02": "ŞUBAT", "03": "MART", "04": "NİSAN",
+    "05": "MAYIS", "06": "HAZİRAN", "07": "TEMMUZ", "08": "AĞUSTOS",
+    "09": "EYLÜL", "10": "EKİM", "11": "KASIM", "12": "ARALIK",
   }
   const ayIsmi = AY_ISIMLERI_TR[ayNum] || "AY"
-  const titleText = `${yil}-${ayIsmi} AYI GUNLUK ARAC KULLANIMI TAKIP CIZELGESI`
+  const titleText = `${yil}-${ayIsmi} AYI GÜNLÜK ARAÇ KULLANIMI TAKİP ÇİZELGESİ`
   
-  doc.setFontSize(16)
-  doc.setTextColor(44, 62, 80)
-  doc.text("BILGICEVRE", 105, 15, { align: "center" })
+  doc.setFontSize(18)
+  doc.setTextColor(0, 0, 0)
+  doc.text("BÖLGEÇEVRE", 148, 15, { align: "center" })
   
-  doc.setFontSize(11)
-  doc.text(titleText, 105, 22, { align: "center" })
+  doc.setFontSize(12)
+  doc.text(titleText, 148, 23, { align: "center" })
   
-  // Basic Info Table
-  const basicInfo = [
-    ["Tarih", fmtTarih(data.tarih), "Plaka", data.plaka || "-"],
-    ["Sofor", data.sofor1 || "-", "Taslak No", data.taslakNo || "-"]
-  ]
-  
+  // Excel Formatına Uygun Tablo Verileri
+  const formatCheck = (madde: any) => {
+    if (!madde) return '■ Kontrol Edildi.\n□ Uygun değil.\n□ Diğer…...............';
+    if (madde.durum === 'Uygun') return '■ Kontrol Edildi.\n□ Uygun değil.\n□ Diğer…...............';
+    if (madde.durum === 'Uygun Değil') return `□ Kontrol Edildi.\n■ Uygun değil.\n□ Diğer: ${madde.aciklama || 'Belirtilmedi'}`;
+    return '□ Kontrol Edildi.\n□ Uygun değil.\n□ Diğer…...............';
+  };
+
+  const isFarKornaUygunDegil = 
+    data.kontrol['farlar']?.durum === 'Uygun Değil' || 
+    data.kontrol['korna']?.durum === 'Uygun Değil' || 
+    data.kontrol['silecek']?.durum === 'Uygun Değil' || 
+    data.kontrol['camlar']?.durum === 'Uygun Değil';
+    
+  let farKornaAciklama = '';
+  if (isFarKornaUygunDegil) {
+      farKornaAciklama = [data.kontrol['farlar']?.aciklama, data.kontrol['korna']?.aciklama, data.kontrol['silecek']?.aciklama, data.kontrol['camlar']?.aciklama].filter(Boolean).join(', ');
+  }
+
+  const seferler = [];
+  if (data.gidisKm1 || data.donusKm1) seferler.push({ gidis: data.gidisKm1, donus: data.donusKm1 });
+  if (data.gidisKm2 || data.donusKm2) seferler.push({ gidis: data.gidisKm2, donus: data.donusKm2 });
+  if (data.gidisKm3 || data.donusKm3) seferler.push({ gidis: data.gidisKm3, donus: data.donusKm3 });
+  if (seferler.length === 0) seferler.push({ gidis: '', donus: '' });
+
+  const tableData = seferler.map((sefer, index) => {
+    return [
+      data.sofor1 || '',
+      fmtTarih(data.tarih),
+      formatCheck(data.kontrol['cam_kaporta']),
+      formatCheck(data.kontrol['lastikler']),
+      formatCheck({ durum: isFarKornaUygunDegil ? 'Uygun Değil' : 'Uygun', aciklama: farKornaAciklama }),
+      data.yakitAlindi || '',
+      data.yakitAlindi === 'Evet' ? fmtTarih(data.yakitTarihi) : '-',
+      `${data.guzergah || ''}${seferler.length > 1 ? ` (${index + 1}. Sefer)` : ''}`,
+      [data.sofor2, data.sofor3].filter(Boolean).join(', ') || '-',
+      sefer.gidis || '',
+      sefer.donus || '',
+      `${data.cikisSaati || '-'} - ${data.donusSaati || '-'}`,
+      '' // İmza alanı
+    ];
+  });
+
   autoTable(doc, {
-    startY: 30,
-    body: basicInfo,
-    theme: "grid",
-    styles: { fontSize: 10, cellPadding: 3, lineColor: [189, 195, 199] },
+    startY: 32,
+    head: [['Şoför', 'Tarih', 'Cam / Kaporta', 'Lastikler', 'Far/Korna/Sil.', 'Yakıt', 'Yakıt Tar.', 'Güzergah', 'Personel', 'KM Baş.', 'KM Bit.', 'Saat', 'İmza']],
+    body: tableData,
+    theme: 'grid',
+    styles: { font: "Roboto", fontSize: 7, cellPadding: 1.5, lineColor: [200, 200, 200], valign: 'middle' },
+    headStyles: { fillColor: [52, 152, 219], textColor: 255, fontStyle: "bold", fontSize: 7 },
     columnStyles: {
-      0: { fontStyle: "bold", cellWidth: 35, fillColor: [245, 245, 245] },
-      1: { cellWidth: 60 },
-      2: { fontStyle: "bold", cellWidth: 35, fillColor: [245, 245, 245] },
-      3: { cellWidth: 60 }
-    }
-  })
-  
-  // Controls Table
-  const controls = [
-    ["Kontrol Maddesi", "Durum", "Aciklama"],
-    ["Cam / Kaporta", data.kontrol["cam_kaporta"]?.durum || "Uygun", data.kontrol["cam_kaporta"]?.aciklama || "-"],
-    ["Lastikler", data.kontrol["lastikler"]?.durum || "Uygun", data.kontrol["lastikler"]?.aciklama || "-"],
-    ["Farlar", data.kontrol["farlar"]?.durum || "Uygun", data.kontrol["farlar"]?.aciklama || "-"],
-    ["Korna", data.kontrol["korna"]?.durum || "Uygun", data.kontrol["korna"]?.aciklama || "-"],
-    ["Silecek", data.kontrol["silecek"]?.durum || "Uygun", data.kontrol["silecek"]?.aciklama || "-"],
-    ["Camlar", data.kontrol["camlar"]?.durum || "Uygun", data.kontrol["camlar"]?.aciklama || "-"]
-  ]
-  
-  autoTable(doc, {
-    startY: (doc as any).lastAutoTable.finalY + 8,
-    head: [controls[0]],
-    body: controls.slice(1),
-    theme: "striped",
-    styles: { fontSize: 9, cellPadding: 2 },
-    headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: "bold" },
-    alternateRowStyles: { fillColor: [245, 249, 253] }
-  })
-  
-  // KM and Route
-  const kmInfo = [
-    ["KM Baslangic", data.gidisKm1 || "-", "KM Bitis", data.donusKm3 || data.gidisKm3 || data.donusKm2 || data.gidisKm2 || data.donusKm1 || "-"],
-    ["Cikis Saati", data.cikisSaati || "-", "Donus Saati", data.donusSaati || "-"]
-  ]
-  
-  autoTable(doc, {
-    startY: (doc as any).lastAutoTable.finalY + 8,
-    body: kmInfo,
-    theme: "grid",
-    styles: { fontSize: 9, cellPadding: 3 },
-    columnStyles: {
-      0: { fontStyle: "bold", cellWidth: 35, fillColor: [245, 245, 245] },
-      2: { fontStyle: "bold", cellWidth: 35, fillColor: [245, 245, 245] }
-    }
-  })
-  
-  // Route and Equipment
-  const guzergah = data.guzergah || "-"
-  const eksikEkipman = EQUIPMENT_ITEMS.filter(e => !data.ekipman[e.id]).map(e => e.label).join(", ") || "Yok"
-  
-  autoTable(doc, {
-    startY: (doc as any).lastAutoTable.finalY + 8,
-    body: [
-      ["Guzergah", guzergah],
-      ["Eksik Ekipman", eksikEkipman],
-      ["Diger Personel", [data.sofor2, data.sofor3].filter(Boolean).join(", ") || "-"]
-    ],
-    theme: "grid",
-    styles: { fontSize: 9, cellPadding: 3 },
-    columnStyles: {
-      0: { fontStyle: "bold", cellWidth: 35, fillColor: [245, 245, 245] }
-    }
-  })
-  
-  // Fuel
-  autoTable(doc, {
-    startY: (doc as any).lastAutoTable.finalY + 8,
-    body: [
-      ["Yakit Alindi mi?", data.yakitAlindi || "Hayir", "Yakit Tarihi", data.yakitAlindi === "Evet" ? fmtTarih(data.yakitTarihi) : "-"]
-    ],
-    theme: "grid",
-    styles: { fontSize: 9, cellPadding: 3 },
-    columnStyles: {
-      0: { fontStyle: "bold", cellWidth: 35, fillColor: [245, 245, 245] },
-      2: { fontStyle: "bold", cellWidth: 35, fillColor: [245, 245, 245] }
-    }
-  })
-  
-  // Footer
-  const finalY = (doc as any).lastAutoTable.finalY
-  doc.setFontSize(10)
-  doc.setTextColor(100)
-  doc.text("Imza:", 160, finalY + 20)
-  
-  // Draw a line for signature
-  doc.setDrawColor(200)
-  doc.line(150, finalY + 25, 190, finalY + 25)
+      0: { cellWidth: 25 },
+      1: { cellWidth: 20 },
+      2: { cellWidth: 35 },
+      3: { cellWidth: 35 },
+      4: { cellWidth: 35 },
+      5: { cellWidth: 15 },
+      6: { cellWidth: 20 },
+      7: { cellWidth: 35 },
+      8: { cellWidth: 25 },
+      9: { cellWidth: 15 },
+      10: { cellWidth: 15 },
+      11: { cellWidth: 20 },
+      12: { cellWidth: 15 },
+    },
+    margin: { left: 5, right: 5 }
+  });
+
+  // Eksik Ekipman Notu
+  const finalY = (doc as any).lastAutoTable.finalY;
+  const eksik = EQUIPMENT_ITEMS.filter(e => !data.ekipman[e.id]).map(e => e.label).join(", ") || "Yok";
+  doc.setFontSize(9);
+  doc.text(`Eksik Ekipmanlar: ${eksik}`, 10, finalY + 10);
   
   return doc.output("blob")
 }
