@@ -97,7 +97,7 @@ function setKm(cell: ExcelJS.Cell, val: string) {
  */
 export async function buildWorkbook(data: FormData): Promise<ExcelJS.Workbook> {
   const wb = new ExcelJS.Workbook()
-  const abs = path.join(process.cwd(), TEMPLATE_PATH)
+  const abs = path.join(/*turbopackIgnore: true*/ process.cwd(), TEMPLATE_PATH)
   await wb.xlsx.readFile(abs)
 
   const ws = wb.getWorksheet(TEMPLATE_SHEET)
