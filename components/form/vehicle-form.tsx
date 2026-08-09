@@ -15,7 +15,9 @@ import {
 } from "./fields"
 import { FormHeader } from "./form-header"
 import { RulesAccordion } from "./rules-accordion"
-import { ShareModal } from "./share-modal"
+// import { ShareModal } from "./share-modal"
+import { generatePDF, pdfFileName } from "@/lib/pdf-client"
+import { excelFileName } from "@/lib/excel-client"
 import { VEHICLES, LOCATIONS, DRIVERS_BY_LOCATION, CHECKLIST_ITEMS, EQUIPMENT_ITEMS } from "@/lib/form-config"
 import {
   createEmptyForm,
@@ -91,6 +93,51 @@ export function VehicleForm() {
     return v.replace(/[^\d]/g, "")
   }
 
+  async function handleShare() {
+    if (!data) return
+    const errs = validateForm(data)
+    setErrors(errs)
+    if (errs.length > 0) {
+      window.scrollTo({ top: 0, behavior: "smooth" })
+      return
+    }
+
+    setIsExporting(true)
+    try {
+      const pdfBlob = await generatePDF(data)
+      const fileName = pdfFileName(data)
+      const file = new File([pdfBlob], fileName, { type: "application/pdf" })
+
+      // Web Share API desteği varsa (Mobil ve bazı masaüstü tarayıcılar)
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          title: "Günlük Araç Kullanım Formu",
+          text: `${data.plaka || "Araç"} - ${data.tarih} tarihli kullanım formu ekte yer almaktadır.`,
+          files: [file],
+        })
+        setToast("Form başarıyla paylaşıldı.")
+      } else {
+        // Destek yoksa (Masaüstü Chrome vb.) doğrudan indir
+        const url = URL.createObjectURL(pdfBlob)
+        const a = document.createElement("a")
+        a.href = url
+        a.download = fileName
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+        setToast("PDF oluşturuldu ve indirildi.")
+      }
+    } catch (err) {
+      console.error("Paylaşım hatası:", err)
+      if ((err as Error).name !== "AbortError") {
+        setToast("Paylaşım sırasında bir hata oluştu.")
+      }
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
   async function handleSubmit() {
     const errs = validateForm(data!)
     setErrors(errs)
@@ -101,9 +148,7 @@ export function VehicleForm() {
     if (data!.durum === "Taslak") {
       setToast("Taslak olarak kaydedildi.")
     } else {
-      // Gönderildi durumunda Paylaşım Seçeneklerini Göster
-      setToast("Form hazırlandı. Gönderim seçeneklerini seçin.");
-      setShareOpen(true);
+      await handleShare()
     }
   }
 
@@ -335,7 +380,7 @@ export function VehicleForm() {
           size="lg"
           className="h-14 w-full rounded-2xl text-lg font-semibold shadow-lg"
         >
-          {isExporting ? "İNDİRİLİYOR..." : <><Send className="mr-2 size-5" />GÖNDER</>}
+          {isExporting ? "HAZIRLANIYOR..." : <><Send className="mr-2 size-5" />PAYLAŞ</>}
         </Button>
       </div>
 
@@ -355,7 +400,7 @@ export function VehicleForm() {
         </div>
       )}
 
-      <ShareModal open={shareOpen} data={data} onClose={() => setShareOpen(false)} />
+      {/* <ShareModal open={shareOpen} data={data} onClose={() => setShareOpen(false)} /> */}
     </div>
   )
 }
