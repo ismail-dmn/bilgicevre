@@ -82,19 +82,19 @@ export function ShareModal({
     setBusy("whatsapp")
     setActionResult(null)
     try {
-      const blob = await fetchExcelBlob(data)
-      const fileName = excelFileName(data)
-      const file = new File([blob], fileName, { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })
+      const blob = await generatePDF(data)
+      const fileName = pdfFileName(data)
+      const file = new File([blob], fileName, { type: "application/pdf" })
 
       // Eğer tarayıcı Web Share API (dosya paylaşımı) destekliyorsa doğrudan dosyayı paylaş
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         try {
           await navigator.share({
-            title: "Günlük Araç Kullanım Formu",
+            title: "Günlük Araç Kullanım Formu (PDF)",
             text: buildWhatsappText(data),
             files: [file],
           })
-          setActionResult("Excel dosyası ve form bilgileri başarıyla paylaşıldı.")
+          setActionResult("PDF dosyası başarıyla paylaşıldı.")
           return
         } catch (err) {
           if ((err as Error).name !== "AbortError") {
@@ -104,13 +104,21 @@ export function ShareModal({
       }
 
       // Desteklemiyorsa dosyayı indir ve WhatsApp web bağlantısını aç
-      await downloadExcel(data)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = fileName
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+
       const text = encodeURIComponent(buildWhatsappText(data))
       const base = CORPORATE_WHATSAPP
         ? `https://wa.me/${CORPORATE_WHATSAPP}?text=${text}`
         : `https://wa.me/?text=${text}`
       window.open(base, "_blank", "noopener,noreferrer" )
-      setActionResult("Excel dosyası indirildi. Açılan WhatsApp sohbetinde indirilen Excel dosyasını ek olarak gönderebilirsiniz.")
+      setActionResult("PDF dosyası indirildi. Açılan WhatsApp sohbetinde indirilen PDF dosyasını ek olarak gönderebilirsiniz.")
     } catch {
       setActionResult("WhatsApp paylaşımı sırasında bir hata oluştu.")
     } finally {
@@ -273,38 +281,42 @@ export function ShareModal({
         <div className="flex flex-col gap-3">
           <ActionButton
             icon={<Mail className="size-5" />}
-            label="E-POSTA"
-            desc="PDF'i indirir ve form verileriyle e-posta istemcisini açar"
+            label="E-POSTA İLE PAYLAŞ"
+            desc="Formun PDF versiyonunu hazırlar ve e-posta istemcisini açar"
             loading={busy === "email"}
             onClick={handleEmail}
           />
           <ActionButton
-            icon={<Download className="size-5" />}
-            label="PDF OLARAK İNDİR"
-            desc="Doldurulmuş formu PDF formatında indir veya paylaş"
-            loading={busy === "pdf"}
-            onClick={handlePDF}
-          />
-          <ActionButton
             icon={<MessageCircle className="size-5" />}
-            label="WHATSAPP"
-            desc="Excel dosyasını direkt paylaşır veya indirip WhatsApp'ı açar"
+            label="WHATSAPP İLE PAYLAŞ"
+            desc="Formun PDF versiyonunu WhatsApp üzerinden paylaşır"
             loading={busy === "whatsapp"}
             onClick={handleWhatsapp}
           />
+          <div className="grid grid-cols-2 gap-3">
+            <ActionButton
+              icon={<Download className="size-4" />}
+              label="PDF KAYDET"
+              desc="PDF olarak indir"
+              loading={busy === "pdf"}
+              onClick={handlePDF}
+              compact
+            />
+            <ActionButton
+              icon={<Download className="size-4" />}
+              label="EXCEL KAYDET"
+              desc="Excel olarak indir"
+              loading={busy === "excel"}
+              onClick={handleExcel}
+              compact
+            />
+          </div>
           <ActionButton
             icon={<Copy className="size-5" />}
             label="FORM METNİNİ KOPYALA"
-            desc="Tüm form verilerini metin olarak panoya kopyala"
+            desc="Tüm verileri metin olarak kopyala (Hızlı paylaşım için)"
             loading={busy === "copy"}
             onClick={handleCopy}
-          />
-          <ActionButton
-            icon={<Download className="size-5" />}
-            label="EXCEL'İ İNDİR"
-            desc="Doldurulmuş .xlsx dosyasını indir"
-            loading={busy === "excel"}
-            onClick={handleExcel}
           />
         </div>
 
@@ -329,26 +341,28 @@ function ActionButton({
   desc,
   loading,
   onClick,
+  compact = false,
 }: {
   icon: React.ReactNode
   label: string
   desc: string
   loading: boolean
   onClick: () => void
+  compact?: boolean
 }) {
   return (
     <button
       type="button"
       disabled={loading}
       onClick={onClick}
-      className="flex items-center gap-3 rounded-xl border border-border bg-background p-4 text-left transition-colors hover:bg-muted disabled:opacity-60"
+      className={`flex items-center gap-3 rounded-xl border border-border bg-background transition-colors hover:bg-muted disabled:opacity-60 ${compact ? "p-3" : "p-4"} text-left`}
     >
-      <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+      <span className={`flex ${compact ? "size-9" : "size-11"} shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary`}>
         {loading ? <Loader2 className="size-5 animate-spin" /> : icon}
       </span>
-      <span className="flex-1">
-        <span className="block text-base font-semibold text-foreground">{label}</span>
-        <span className="block text-xs text-muted-foreground">{desc}</span>
+      <span className="flex-1 overflow-hidden">
+        <span className={`block ${compact ? "text-sm" : "text-base"} font-semibold text-foreground truncate`}>{label}</span>
+        {!compact && <span className="block text-xs text-muted-foreground">{desc}</span>}
       </span>
     </button>
   )
