@@ -1,6 +1,6 @@
 import type { FormData } from "./form-types"
 
-export const DATA_ROW = 30
+export const DATA_ROW = 11
 export const CELL_COLUMNS = {
   surucu: "A",
   tarih: "C",
@@ -19,8 +19,8 @@ export const CELL_COLUMNS = {
 } as const
 
 const cellAddress = (col: string, row: number) => `${col}${row}`
-// Şablonda üç sefer için ayrılmış gerçek veri satırları: 30, 31 ve 32.
-// 33. satırdan sonrası sabit kontrol/şablon içeriğidir ve silinmemelidir.
+// Şablonda üç sefer için ayrılmış gerçek veri satırları: 11, 12 ve 13.
+// 14. satırdan sonrası sabit kontrol/şablon içeriğidir ve silinmemelidir.
 const DATA_END_ROW = DATA_ROW + 2
 
 function clearPreviousEntries(worksheet: any): void {
@@ -55,7 +55,6 @@ export function mapFormDataToExcelClient(worksheet: any, formData: FormData): vo
     "09": "EYLÜL", "10": "EKİM", "11": "KASIM", "12": "ARALIK",
   }
   if (yil && ayNum) worksheet.getCell("C1").value = `${yil}-${aylar[ayNum] || "AY"} AYI GÜNLÜK ARAÇ KULLANIMI TAKİP ÇİZELGESİ`
-  worksheet.getCell("E30").value = formData.plaka || ""
 
   const kontrol = formData.kontrol || {}
   const cam = formatCheck(kontrol.cam_kaporta || kontrol.camKaporta)
@@ -78,6 +77,7 @@ export function mapFormDataToExcelClient(worksheet: any, formData: FormData): vo
   trips.forEach(([gidis, donus], index) => {
     const row = DATA_ROW + index
     worksheet.getCell(cellAddress(CELL_COLUMNS.surucu, row)).value = formData.sofor1 || ""
+    worksheet.getCell(cellAddress(CELL_COLUMNS.plaka, row)).value = formData.plaka || ""
     worksheet.getCell(cellAddress(CELL_COLUMNS.tarih, row)).value = fmtTarih(formData.tarih) || ""
     worksheet.getCell(cellAddress(CELL_COLUMNS.kontrolCamKaporta, row)).value = cam
     worksheet.getCell(cellAddress(CELL_COLUMNS.kontrolLastik, row)).value = lastik
