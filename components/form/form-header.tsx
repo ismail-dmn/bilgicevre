@@ -22,7 +22,7 @@ export function FormHeader({
             alt="BİLGİÇEVRE logosu"
             width={420}
             height={120}
-            className="h-auto w-full max-w-[420px] object-contain object-left"
+            className="h-12 w-auto max-w-[360px] object-contain object-left sm:h-14 sm:max-w-[420px]"
             priority
           />
         </div>
