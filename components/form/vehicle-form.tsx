@@ -246,7 +246,7 @@ export function VehicleForm() {
       )}
 
       {/* 1. Araç Bilgileri */}
-      <Section title="ARAÇ BİLGİLERİ">
+      <Section title="ARAÇ BİLGİLERİ" className="bg-slate-50/90 dark:bg-slate-900/60">
         <Field label="Lokasyon / Bölge" htmlFor="lokasyon" required>
           <SelectInput
             id="lokasyon"
@@ -334,7 +334,7 @@ export function VehicleForm() {
       </Section>
 
       {/* 2. Seferler */}
-      <Section title="SEFERLER">
+      <Section title="SEFERLER" className="bg-card">
         <div className="grid gap-3">
           {[1, 2, 3].map((trip) => {
             const driverKey = `sofor${trip}` as "sofor1" | "sofor2" | "sofor3"
@@ -403,7 +403,7 @@ export function VehicleForm() {
       </Section>
 
       {/* 5. Kontrol listesi */}
-      <Section title="ARAÇ KONTROL LİSTESİ">
+      <Section title="ARAÇ KONTROL LİSTESİ" className="bg-slate-50/90 dark:bg-slate-900/60">
         {CHECKLIST_ITEMS.map((item) => {
           const madde = data.kontrol[item.id]
           return (
@@ -434,7 +434,7 @@ export function VehicleForm() {
       </Section>
 
       {/* 6. Ekipman */}
-      <Section title="ARAÇ EKİPMAN KONTROLÜ">
+      <Section title="ARAÇ EKİPMAN KONTROLÜ" className="bg-card">
         <div className="grid grid-cols-1 gap-2">
           {EQUIPMENT_ITEMS.map((item) => (
             <CheckRow
