@@ -30,17 +30,18 @@ import {
 import { validateForm } from "@/lib/form-validation"
 
 const STORAGE_KEY_BASE = "bilgicevre_arac_form_draft"
+const DEVICE_ID_KEY = `${STORAGE_KEY_BASE}_device_id`
 
 function getDraftStorageKey(): string {
   if (typeof window === "undefined") return STORAGE_KEY_BASE
-  let tabId = window.sessionStorage.getItem("bilgicevre_form_tab_id")
-  if (!tabId) {
-    tabId = typeof crypto !== "undefined" && "randomUUID" in crypto
+  let deviceId = window.localStorage.getItem(DEVICE_ID_KEY)
+  if (!deviceId) {
+    deviceId = typeof crypto !== "undefined" && "randomUUID" in crypto
       ? crypto.randomUUID()
       : `${Date.now()}-${Math.random().toString(36).slice(2)}`
-    window.sessionStorage.setItem("bilgicevre_form_tab_id", tabId)
+    window.localStorage.setItem(DEVICE_ID_KEY, deviceId)
   }
-  return `${STORAGE_KEY_BASE}_${tabId}`
+  return `${STORAGE_KEY_BASE}_${deviceId}`
 }
 
 export function VehicleForm() {
@@ -53,7 +54,7 @@ export function VehicleForm() {
   const [isExporting, setIsExporting] = useState(false)
   const loaded = useRef(false)
 
-  // İlk yüklemede localStorage taslağını geri yükle veya yeni taslak oluştur.
+  // Aynı tarayıcı ve cihazdaki taslağı geri yükle veya yeni taslak oluştur.
   useEffect(() => {
     if (loaded.current) return
     loaded.current = true
@@ -69,7 +70,7 @@ export function VehicleForm() {
     setData(createEmptyForm(generateTaslakNo()))
   }, [])
 
-  // Değişiklikte taslağı otomatik kaydet.
+  // Form değiştikçe taslağı aynı tarayıcıda kalıcı olarak güncelle.
   useEffect(() => {
     if (!data) return
     try {

@@ -20,9 +20,9 @@ export function FormHeader({
           <Image
             src="/bilgicevre-logo.png"
             alt="BİLGİÇEVRE logosu"
-            width={180}
-            height={64}
-            className="h-12 w-auto object-contain sm:h-14"
+            width={240}
+            height={86}
+            className="h-16 w-auto object-contain sm:h-20"
             priority
           />
         </div>
@@ -45,7 +45,6 @@ export function FormHeader({
           <h1 className="text-balance text-xl font-bold tracking-tight text-foreground sm:text-2xl">
             GÜNLÜK ARAÇ KULLANIM TAKİP FORMU
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">BİLGİÇEVRE Filo Takip</p>
         </div>
         <span className="mt-2 inline-flex w-fit items-center rounded-lg bg-secondary px-3 py-1 text-xs font-medium text-secondary-foreground sm:mt-0">
           Taslak No: {taslakNo}
