@@ -1,26 +1,26 @@
 import path from 'path';
 
-export const DATA_ROW = 12;
+export const DATA_ROW = 30;
 
 // Vercel'deki Turbopack uyarılarını gizlemek için yorum satırı bırakıldı
 export const TEMPLATE_PATH = path.join(/*turbopackIgnore: true*/ process.cwd(), 'data', 'arac-kullanim-sablon.xlsx');
-export const TEMPLATE_SHEET = 'Sayfa1';
+export const TEMPLATE_SHEET = 'ÇİZELGE';
 
 export const CELL_COLUMNS = {
   surucu: "A", 
   tarih: "C", 
-  plaka: "P", 
-  kontrolCamKaporta: "E", 
-  kontrolLastik: "F", 
-  kontrolFarKorna: "G", 
-  yakitDurumu: "H",
-  yakit: "I", 
-  guzergah: "J", 
-  personel: "K", 
-  kmBaslangic: "L", 
-  kmBitis: "M", 
-  saat: "N", 
-  imza: "P",
+  plaka: "E", 
+  kontrolCamKaporta: "F", 
+  kontrolLastik: "G", 
+  kontrolFarKorna: "H", 
+  yakitDurumu: "I",
+  yakit: "J", 
+  guzergah: "K", 
+  personel: "L", 
+  kmBaslangic: "M", 
+  kmBitis: "N", 
+  saat: "O", 
+  imza: "Q",
 } as const;
 
 export const cellAddress = (col: string, row: number) => `${col}${row}`;
@@ -60,10 +60,8 @@ export const mapFormDataToExcel = (worksheet: any, formData: any) => {
     worksheet.getCell("C1").value = titleText
   }
 
-  // 2. Plaka Bilgisi (P7 hücresi)
-  if (formData.plaka) {
-    worksheet.getCell("P7").value = formData.plaka;
-  }
+  // Plaka ve form verileri, şablondaki tablo satırlarına yazılır.
+  if (formData.plaka) worksheet.getCell("E30").value = formData.plaka;
 
   const formatCheck = (madde: any) => {
     if (!madde) return '■ Kontrol Edildi.\n□ Uygun değil.\n□ Diğer…...............';

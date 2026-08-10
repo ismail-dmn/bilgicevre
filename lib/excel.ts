@@ -97,11 +97,18 @@ function setKm(cell: ExcelJS.Cell, val: string) {
  */
 export async function buildWorkbook(data: FormData): Promise<ExcelJS.Workbook> {
   const wb = new ExcelJS.Workbook()
-  const abs = path.join(/*turbopackIgnore: true*/ process.cwd(), TEMPLATE_PATH)
-  await wb.xlsx.readFile(abs)
+  await wb.xlsx.readFile(TEMPLATE_PATH)
 
   const ws = wb.getWorksheet(TEMPLATE_SHEET)
   if (!ws) throw new Error(`Şablonda "${TEMPLATE_SHEET}" sayfası bulunamadı.`)
+
+  // Excel ekranındaki tüm alanın PDF sayfasına sığmasını sağla; hücre stilleri ve birleşimler korunur.
+  ws.printArea = "A1:Q186"
+  ws.pageSetup.orientation = "landscape"
+  ws.pageSetup.fitToWidth = 1
+  ws.pageSetup.fitToHeight = 3
+  ws.pageSetup.scale = undefined
+  if (ws.properties.pageSetUpPr) ws.properties.pageSetUpPr.fitToPage = true
 
   // Başlığı (C1 hücresi) tarihe ve lokasyona göre dinamik güncelle: YIL-AYI GÜNLÜK ARAÇ KULLANIMI TAKİP ÇİZELGESİ
   const tarihStr = data.tarih || new Date().toISOString().slice(0, 10)
@@ -124,32 +131,35 @@ export async function buildWorkbook(data: FormData): Promise<ExcelJS.Workbook> {
   const titleText = `${yil}-${ayIsmi} AYI GÜNLÜK ARAÇ KULLANIMI TAKİP ÇİZELGESİ`.toUpperCase()
   ws.getCell("C1").value = titleText
 
-  const row = DATA_ROW
-  const set = (col: string, value: string | number) => {
-    ws.getCell(`${col}${row}`).value = value
-  }
-
-  // --- Alan -> hücre yazımı (bkz. lib/excel-mapping.ts) ---
-  set(CELL_COLUMNS.surucu, data.sofor1 || "")
-  set(CELL_COLUMNS.tarih, fmtTarih(data.tarih))
-  set(CELL_COLUMNS.plaka, data.plaka || "")
-
-  set(CELL_COLUMNS.kontrolCamKaporta, fmtKontrol(data.kontrol["cam_kaporta"]))
-  set(CELL_COLUMNS.kontrolLastik, fmtKontrol(data.kontrol["lastikler"]))
-  set(CELL_COLUMNS.kontrolFarKorna, fmtFarKorna(data))
-
-  set(CELL_COLUMNS.yakitDurumu, data.yakitAlindi)
-  set(CELL_COLUMNS.yakit, data.yakitAlindi === "Evet" ? fmtTarih(data.yakitTarihi) : "")
-
-  set(CELL_COLUMNS.guzergah, guzergahMetni(data))
-  set(CELL_COLUMNS.personel, personelMetni(data))
-
-  setKm(ws.getCell(cellAddress(CELL_COLUMNS.kmBaslangic, row)), kmBaslangic(data))
-  setKm(ws.getCell(cellAddress(CELL_COLUMNS.kmBitis, row)), kmBitis(data))
-
-  set(CELL_COLUMNS.saat, saatMetni(data))
-
-  // İmza (Q) hücresi elle imzalanmak üzere boş bırakılır.
+  // Excel şablonunun birleşik hücrelerini, stillerini ve sayfa düzenini bozmadan doldur.
+  const trips = [
+    [data.gidisKm1, data.donusKm1],
+    [data.gidisKm2, data.donusKm2],
+    [data.gidisKm3, data.donusKm3],
+  ].filter(([a, b]) => a || b) as string[][]
+  if (!trips.length) trips.push(["", ""])
+  const formatCheck = (item: KontrolMaddesi | undefined) => item?.durum === "Uygun Değil"
+    ? `□ Kontrol Edildi.\n■ Uygun değil.\n□ Diğer: ${item.aciklama || "Belirtilmedi"}`
+    : "■ Kontrol Edildi.\n□ Uygun değil.\n□ Diğer…..............."
+  const farKorna = ["farlar", "korna", "silecek", "camlar"].map((key) => data.kontrol[key]).find((item) => item?.durum === "Uygun Değil")
+  const route = data.guzergah || ""
+  trips.forEach(([startKm, endKm], index) => {
+    const row = DATA_ROW + index
+    const set = (col: string, value: string | number) => { ws.getCell(`${col}${row}`).value = value }
+    set(CELL_COLUMNS.surucu, data.sofor1 || "")
+    set(CELL_COLUMNS.tarih, fmtTarih(data.tarih))
+    set(CELL_COLUMNS.plaka, data.plaka || "")
+    set(CELL_COLUMNS.kontrolCamKaporta, formatCheck(data.kontrol["cam_kaporta"]))
+    set(CELL_COLUMNS.kontrolLastik, formatCheck(data.kontrol["lastikler"]))
+    set(CELL_COLUMNS.kontrolFarKorna, formatCheck(farKorna))
+    set(CELL_COLUMNS.yakitDurumu, data.yakitAlindi || "Hayır")
+    set(CELL_COLUMNS.yakit, data.yakitAlindi === "Evet" ? fmtTarih(data.yakitTarihi) : "-")
+    set(CELL_COLUMNS.guzergah, `${route}${trips.length > 1 ? `\n(${index + 1}. Sefer)` : ""}`)
+    set(CELL_COLUMNS.personel, [data.sofor2, data.sofor3].filter(Boolean).join(", "))
+    set(CELL_COLUMNS.kmBaslangic, startKm || "")
+    set(CELL_COLUMNS.kmBitis, endKm || "")
+    set(CELL_COLUMNS.saat, `${data.cikisSaati || "-"} - ${data.donusSaati || "-"}`)
+  })
   void CHECKLIST_ITEMS
 
   return wb
