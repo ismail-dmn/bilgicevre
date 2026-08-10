@@ -138,14 +138,14 @@ export async function buildWorkbook(data: FormData): Promise<ExcelJS.Workbook> {
   set(CELL_COLUMNS.kontrolLastik, fmtKontrol(data.kontrol["lastikler"]))
   set(CELL_COLUMNS.kontrolFarKorna, fmtFarKorna(data))
 
-  set(CELL_COLUMNS.yakit, data.yakitAlindi)
-  set(CELL_COLUMNS.yakitTarih, data.yakitAlindi === "Evet" ? fmtTarih(data.yakitTarihi) : "")
+  set(CELL_COLUMNS.yakitDurumu, data.yakitAlindi)
+  set(CELL_COLUMNS.yakit, data.yakitAlindi === "Evet" ? fmtTarih(data.yakitTarihi) : "")
 
   set(CELL_COLUMNS.guzergah, guzergahMetni(data))
   set(CELL_COLUMNS.personel, personelMetni(data))
 
-  setKm(ws.getCell(cellAddress("kmBaslangic")), kmBaslangic(data))
-  setKm(ws.getCell(cellAddress("kmBitis")), kmBitis(data))
+  setKm(ws.getCell(cellAddress(CELL_COLUMNS.kmBaslangic, row)), kmBaslangic(data))
+  setKm(ws.getCell(cellAddress(CELL_COLUMNS.kmBitis, row)), kmBitis(data))
 
   set(CELL_COLUMNS.saat, saatMetni(data))
 

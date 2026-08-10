@@ -1,124 +1,38 @@
 import { jsPDF } from "jspdf"
 import autoTable from "jspdf-autotable"
 import type { FormData } from "./form-types"
-import { CHECKLIST_ITEMS, EQUIPMENT_ITEMS } from "./form-config"
+import { EQUIPMENT_ITEMS } from "./form-config"
 import { ROBOTO_REGULAR_B64 } from "./font-data"
 
 function fmtTarih(iso: string): string {
   if (!iso) return "-"
-  const parts = iso.split("-")
-  if (parts.length === 3) {
-    const [y, m, d] = parts
-    return `${d}.${m}.${y}`
-  }
-  return iso
+  const [y, m, d] = iso.split("-")
+  return y && m && d ? `${d}.${m}.${y}` : iso
 }
-
+const MONTHS: Record<string, string> = {"01":"OCAK","02":"ŞUBAT","03":"MART","04":"NİSAN","05":"MAYIS","06":"HAZİRAN","07":"TEMMUZ","08":"AĞUSTOS","09":"EYLÜL","10":"EKİM","11":"KASIM","12":"ARALIK"}
+function checkText(item: { durum?: string; aciklama?: string } | undefined): string {
+  return item?.durum === "Uygun Değil" ? `□ Kontrol Edildi.\n■ Uygun değil.\n□ Diğer: ${item.aciklama || "Belirtilmedi"}` : "■ Kontrol Edildi.\n□ Uygun değil.\n□ Diğer…..............."
+}
+function rowsFor(data: FormData) {
+  const trips = [[data.gidisKm1,data.donusKm1],[data.gidisKm2,data.donusKm2],[data.gidisKm3,data.donusKm3]].filter(([a,b]) => a || b) as string[][]
+  if (!trips.length) trips.push(["", ""])
+  const farKorna = ["farlar","korna","silecek","camlar"].map(k => data.kontrol[k]).find(x => x?.durum === "Uygun Değil")
+  return trips.map((trip, i) => [data.sofor1 || "", fmtTarih(data.tarih), checkText(data.kontrol["cam_kaporta"]), checkText(data.kontrol["lastikler"]), checkText(farKorna), data.yakitAlindi || "Hayır", data.yakitAlindi === "Evet" ? fmtTarih(data.yakitTarihi) : "-", `${data.guzergah || ""}${trips.length > 1 ? `\n(${i + 1}. Sefer)` : ""}`, [data.sofor2,data.sofor3].filter(Boolean).join(", "), trip[0] || "", trip[1] || "", `${data.cikisSaati || "-"} - ${data.donusSaati || "-"}`, ""])
+}
 export async function generatePDF(data: FormData): Promise<Blob> {
-  const doc = new jsPDF({ orientation: 'landscape' })
-  
-  // Add Turkish Font
-  doc.addFileToVFS("Roboto-Regular.ttf", ROBOTO_REGULAR_B64)
-  doc.addFont("Roboto-Regular.ttf", "Roboto", "normal")
-  doc.setFont("Roboto")
-
-  // Title
-  const tarihStr = data.tarih || new Date().toISOString().slice(0, 10)
-  const [yil, ayNum] = tarihStr.split("-")
-  const AY_ISIMLERI_TR: Record<string, string> = {
-    "01": "OCAK", "02": "ŞUBAT", "03": "MART", "04": "NİSAN",
-    "05": "MAYIS", "06": "HAZİRAN", "07": "TEMMUZ", "08": "AĞUSTOS",
-    "09": "EYLÜL", "10": "EKİM", "11": "KASIM", "12": "ARALIK",
-  }
-  const ayIsmi = AY_ISIMLERI_TR[ayNum] || "AY"
-  const titleText = `${yil}-${ayIsmi} AYI GÜNLÜK ARAÇ KULLANIMI TAKİP ÇİZELGESİ`
-  
-  doc.setFontSize(18)
-  doc.setTextColor(0, 0, 0)
-  doc.text("BÖLGEÇEVRE", 148, 15, { align: "center" })
-  
-  doc.setFontSize(12)
-  doc.text(titleText, 148, 23, { align: "center" })
-  
-  // Excel Formatına Uygun Tablo Verileri
-  const formatCheck = (madde: any) => {
-    if (!madde) return '■ Kontrol Edildi.\n□ Uygun değil.\n□ Diğer…...............';
-    if (madde.durum === 'Uygun') return '■ Kontrol Edildi.\n□ Uygun değil.\n□ Diğer…...............';
-    if (madde.durum === 'Uygun Değil') return `□ Kontrol Edildi.\n■ Uygun değil.\n□ Diğer: ${madde.aciklama || 'Belirtilmedi'}`;
-    return '□ Kontrol Edildi.\n□ Uygun değil.\n□ Diğer…...............';
-  };
-
-  const isFarKornaUygunDegil = 
-    data.kontrol['farlar']?.durum === 'Uygun Değil' || 
-    data.kontrol['korna']?.durum === 'Uygun Değil' || 
-    data.kontrol['silecek']?.durum === 'Uygun Değil' || 
-    data.kontrol['camlar']?.durum === 'Uygun Değil';
-    
-  let farKornaAciklama = '';
-  if (isFarKornaUygunDegil) {
-      farKornaAciklama = [data.kontrol['farlar']?.aciklama, data.kontrol['korna']?.aciklama, data.kontrol['silecek']?.aciklama, data.kontrol['camlar']?.aciklama].filter(Boolean).join(', ');
-  }
-
-  const seferler = [];
-  if (data.gidisKm1 || data.donusKm1) seferler.push({ gidis: data.gidisKm1, donus: data.donusKm1 });
-  if (data.gidisKm2 || data.donusKm2) seferler.push({ gidis: data.gidisKm2, donus: data.donusKm2 });
-  if (data.gidisKm3 || data.donusKm3) seferler.push({ gidis: data.gidisKm3, donus: data.donusKm3 });
-  if (seferler.length === 0) seferler.push({ gidis: '', donus: '' });
-
-  const tableData = seferler.map((sefer, index) => {
-    return [
-      data.sofor1 || '',
-      fmtTarih(data.tarih),
-      formatCheck(data.kontrol['cam_kaporta']),
-      formatCheck(data.kontrol['lastikler']),
-      formatCheck({ durum: isFarKornaUygunDegil ? 'Uygun Değil' : 'Uygun', aciklama: farKornaAciklama }),
-      data.yakitAlindi || '',
-      data.yakitAlindi === 'Evet' ? fmtTarih(data.yakitTarihi) : '-',
-      `${data.guzergah || ''}${seferler.length > 1 ? ` (${index + 1}. Sefer)` : ''}`,
-      [data.sofor2, data.sofor3].filter(Boolean).join(', ') || '-',
-      sefer.gidis || '',
-      sefer.donus || '',
-      `${data.cikisSaati || '-'} - ${data.donusSaati || '-'}`,
-      '' // İmza alanı
-    ];
-  });
-
-  autoTable(doc, {
-    startY: 32,
-    head: [['Şoför', 'Tarih', 'Cam / Kaporta', 'Lastikler', 'Far/Korna/Sil.', 'Yakıt', 'Yakıt Tar.', 'Güzergah', 'Personel', 'KM Baş.', 'KM Bit.', 'Saat', 'İmza']],
-    body: tableData,
-    theme: 'grid',
-    styles: { font: "Roboto", fontSize: 7, cellPadding: 1.5, lineColor: [200, 200, 200], valign: 'middle' },
-    headStyles: { fillColor: [52, 152, 219], textColor: 255, fontStyle: "bold", fontSize: 7 },
-    columnStyles: {
-      0: { cellWidth: 25 },
-      1: { cellWidth: 20 },
-      2: { cellWidth: 35 },
-      3: { cellWidth: 35 },
-      4: { cellWidth: 35 },
-      5: { cellWidth: 15 },
-      6: { cellWidth: 20 },
-      7: { cellWidth: 35 },
-      8: { cellWidth: 25 },
-      9: { cellWidth: 15 },
-      10: { cellWidth: 15 },
-      11: { cellWidth: 20 },
-      12: { cellWidth: 15 },
-    },
-    margin: { left: 5, right: 5 }
-  });
-
-  // Eksik Ekipman Notu
-  const finalY = (doc as any).lastAutoTable.finalY;
-  const eksik = EQUIPMENT_ITEMS.filter(e => !data.ekipman[e.id]).map(e => e.label).join(", ") || "Yok";
-  doc.setFontSize(9);
-  doc.text(`Eksik Ekipmanlar: ${eksik}`, 10, finalY + 10);
-  
+  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" })
+  doc.addFileToVFS("Roboto-Regular.ttf", ROBOTO_REGULAR_B64); doc.addFont("Roboto-Regular.ttf", "Roboto", "normal"); doc.setFont("Roboto")
+  const date = data.tarih || new Date().toISOString().slice(0, 10), [year, month] = date.split("-"), title = `${year || ""}-${MONTHS[month] || "AY"} AYI GÜNLÜK ARAÇ KULLANIMI TAKİP ÇİZELGESİ`
+  const rows = rowsFor(data)
+  ;[[1,62],[63,124],[125,186]].forEach(([start,end], pageIndex) => {
+    if (pageIndex) doc.addPage()
+    doc.setDrawColor(40); doc.setLineWidth(.25); doc.rect(7,7,283,185); doc.setTextColor(0)
+    doc.setFontSize(13); doc.text("BİLGİÇEVRE",148.5,14,{align:"center"}); doc.setFontSize(9); doc.text(title,148.5,20,{align:"center"}); doc.setFontSize(7)
+    doc.text(`Doküman No: 19-BÇ-001    Taslak No: ${data.taslakNo || "-"}`,12,27); doc.text(`Lokasyon: ${data.lokasyon || "-"}    Plaka: ${data.plaka || "-"}`,188,27)
+    autoTable(doc,{startY:31,margin:{left:9,right:9},head:[["SÜRÜCÜ AD-SOYAD","TARİH","CAM / KAPORTA","LASTİKLER","FAR / KORNA / SİL. / CAM","YAKIT","YAKIT TAR.","GÜZERGAH","PERSONEL","KM BAŞ.","KM BİT.","SAAT","İMZA"]],body:pageIndex===0&&rows.length?rows:[["","","","","","","","","","","","",""]],theme:"grid",styles:{font:"Roboto",fontSize:6.1,cellPadding:1.2,lineColor:[50,50,50],textColor:[0,0,0],valign:"middle",minCellHeight:18},headStyles:{fillColor:[235,235,235],textColor:[0,0,0],fontStyle:"bold",fontSize:5.7,halign:"center",minCellHeight:10},columnStyles:{0:{cellWidth:25},1:{cellWidth:17},2:{cellWidth:28},3:{cellWidth:27},4:{cellWidth:31},5:{cellWidth:13},6:{cellWidth:17},7:{cellWidth:29},8:{cellWidth:24},9:{cellWidth:15},10:{cellWidth:15},11:{cellWidth:22},12:{cellWidth:17}},didDrawPage:()=>{doc.setFontSize(6);doc.text(`Şablon sayfası ${pageIndex+1}/3 — Excel satır aralığı ${start}-${end}`,148.5,198,{align:"center"})}})
+    const finalY=(doc as any).lastAutoTable.finalY as number
+    if(pageIndex===2){const missing=EQUIPMENT_ITEMS.filter(e=>!data.ekipman[e.id]).map(e=>e.label).join(", ")||"Yok";doc.setFontSize(7);doc.text(`Eksik ekipman: ${missing}`,12,Math.min(finalY+9,182));doc.text("Sürücü İmzası: ____________________        Kontrol Eden: ____________________",12,188)}
+  })
   return doc.output("blob")
 }
-
-export function pdfFileName(data: FormData): string {
-  const tarih = data.tarih || new Date().toISOString().slice(0, 10)
-  const plaka = (data.plaka || "Arac").replace(/[^a-z0-9]/gi, "_")
-  return `Arac_Kullanim_Formu_${tarih}_${plaka}.pdf`
-}
+export function pdfFileName(data: FormData): string { const tarih=data.tarih||new Date().toISOString().slice(0,10); const plaka=(data.plaka||"Arac").replace(/[^a-z0-9]/gi,"_"); return `Gunluk_Arac_Kullanim_Takip_Cizelgesi_${tarih}_${plaka}.pdf` }
