@@ -16,7 +16,7 @@ import {
 import { FormHeader } from "./form-header"
 import { RulesAccordion } from "./rules-accordion"
 // import { ShareModal } from "./share-modal"
-import { generatePDF, pdfFileName } from "@/lib/pdf-client"
+import { pdfFileName } from "@/lib/pdf-client"
 import { excelFileName } from "@/lib/excel-client"
 import { VEHICLES, LOCATIONS, DRIVERS_BY_LOCATION, CHECKLIST_ITEMS, EQUIPMENT_ITEMS } from "@/lib/form-config"
 import {
@@ -93,6 +93,16 @@ export function VehicleForm() {
     return v.replace(/[^\d]/g, "")
   }
 
+  async function fetchTemplatePdf(formData: FormData): Promise<Blob> {
+    const response = await fetch("/api/export-pdf", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(formData),
+    })
+    if (!response.ok) throw new Error("Excel şablonu PDF'ye dönüştürülemedi.")
+    return response.blob()
+  }
+
   async function handleShare() {
     if (!data) return
     const errs = validateForm(data)
@@ -104,7 +114,7 @@ export function VehicleForm() {
 
     setIsExporting(true)
     try {
-      const pdfBlob = await generatePDF(data)
+      const pdfBlob = await fetchTemplatePdf(data)
       const fileName = pdfFileName(data)
       const file = new File([pdfBlob], fileName, { type: "application/pdf" })
 
@@ -139,17 +149,24 @@ export function VehicleForm() {
   }
 
   async function handleSubmit() {
+    if (data!.durum === "Taslak") {
+      try {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+        setErrors([])
+        setToast("Taslak kaydedildi.")
+      } catch {
+        setToast("Taslak kaydedilemedi.")
+      }
+      return
+    }
+
     const errs = validateForm(data!)
     setErrors(errs)
     if (errs.length > 0) {
       window.scrollTo({ top: 0, behavior: "smooth" })
       return
     }
-    if (data!.durum === "Taslak") {
-      setToast("Taslak olarak kaydedildi.")
-    } else {
-      await handleShare()
-    }
+    await handleShare()
   }
 
   function handleReset() {
@@ -380,7 +397,7 @@ export function VehicleForm() {
           size="lg"
           className="h-14 w-full rounded-2xl text-lg font-semibold shadow-lg"
         >
-          {isExporting ? "HAZIRLANIYOR..." : <><Send className="mr-2 size-5" />PAYLAŞ</>}
+          {isExporting ? "HAZIRLANIYOR..." : data.durum === "Taslak" ? "KAYDET" : <><Send className="mr-2 size-5" />PAYLAŞ</>}
         </Button>
       </div>
 
