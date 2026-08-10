@@ -16,7 +16,6 @@ import {
 import { FormHeader } from "./form-header"
 import { RulesAccordion } from "./rules-accordion"
 // import { ShareModal } from "./share-modal"
-import { generatePDF, pdfFileName } from "@/lib/pdf-client"
 import { excelFileName } from "@/lib/excel-client"
 import { VEHICLES, LOCATIONS, DRIVERS_BY_LOCATION, CHECKLIST_ITEMS, EQUIPMENT_ITEMS } from "@/lib/form-config"
 import {
@@ -93,8 +92,23 @@ export function VehicleForm() {
     return v.replace(/[^\d]/g, "")
   }
 
-  async function fetchTemplatePdf(formData: FormData): Promise<Blob> {
-    return generatePDF(formData)
+  async function fetchExcelBlob(formData: FormData): Promise<Blob> {
+    const response = await fetch("/api/export-excel", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(formData),
+    })
+    if (!response.ok) {
+      let message = "Excel dosyası oluşturulamadı."
+      try {
+        const payload = (await response.json()) as { error?: string }
+        if (payload.error) message = payload.error
+      } catch {
+        // JSON hata gövdesi yoksa varsayılan mesajı kullan.
+      }
+      throw new Error(message)
+    }
+    return response.blob()
   }
 
   async function handleShare() {
@@ -108,9 +122,9 @@ export function VehicleForm() {
 
     setIsExporting(true)
     try {
-      const pdfBlob = await fetchTemplatePdf(data)
-      const fileName = pdfFileName(data)
-      const file = new File([pdfBlob], fileName, { type: "application/pdf" })
+      const excelBlob = await fetchExcelBlob(data)
+      const fileName = excelFileName(data)
+      const file = new File([excelBlob], fileName, { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })
 
       // Web Share API desteği varsa (Mobil ve bazı masaüstü tarayıcılar)
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -122,7 +136,7 @@ export function VehicleForm() {
         setToast("Form başarıyla paylaşıldı.")
       } else {
         // Destek yoksa (Masaüstü Chrome vb.) doğrudan indir
-        const url = URL.createObjectURL(pdfBlob)
+        const url = URL.createObjectURL(excelBlob)
         const a = document.createElement("a")
         a.href = url
         a.download = fileName
@@ -130,7 +144,7 @@ export function VehicleForm() {
         a.click()
         document.body.removeChild(a)
         URL.revokeObjectURL(url)
-        setToast("PDF oluşturuldu ve indirildi.")
+        setToast("Excel dosyası oluşturuldu ve indirildi.")
       }
     } catch (err) {
       console.error("Paylaşım hatası:", err)
