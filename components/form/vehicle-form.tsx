@@ -16,7 +16,7 @@ import {
 import { FormHeader } from "./form-header"
 import { RulesAccordion } from "./rules-accordion"
 // import { ShareModal } from "./share-modal"
-import { pdfFileName } from "@/lib/pdf-client"
+import { generatePDF, pdfFileName } from "@/lib/pdf-client"
 import { excelFileName } from "@/lib/excel-client"
 import { VEHICLES, LOCATIONS, DRIVERS_BY_LOCATION, CHECKLIST_ITEMS, EQUIPMENT_ITEMS } from "@/lib/form-config"
 import {
@@ -94,13 +94,7 @@ export function VehicleForm() {
   }
 
   async function fetchTemplatePdf(formData: FormData): Promise<Blob> {
-    const response = await fetch("/api/export-pdf", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(formData),
-    })
-    if (!response.ok) throw new Error("Excel şablonu PDF'ye dönüştürülemedi.")
-    return response.blob()
+    return generatePDF(formData)
   }
 
   async function handleShare() {
@@ -141,7 +135,7 @@ export function VehicleForm() {
     } catch (err) {
       console.error("Paylaşım hatası:", err)
       if ((err as Error).name !== "AbortError") {
-        setToast("Paylaşım sırasında bir hata oluştu.")
+        setToast(`Paylaşım sırasında bir hata oluştu: ${(err as Error).message || "Bilinmeyen hata"}`)
       }
     } finally {
       setIsExporting(false)

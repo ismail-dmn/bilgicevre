@@ -19,15 +19,9 @@ async function fetchExcelBlob(data: FormData): Promise<Blob> {
   return await res.blob()
 }
 
-// Excel dosyasını cihaza indir
+// PDF doğrudan tarayıcıda oluşturulur; Vercel sunucusunda Python/LibreOffice gerekmez.
 async function fetchTemplatePdf(data: FormData): Promise<Blob> {
-  const res = await fetch("/api/export-pdf", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  })
-  if (!res.ok) throw new Error("Excel şablonu PDF'ye dönüştürülemedi.")
-  return await res.blob()
+  return generatePDF(data)
 }
 
 async function downloadExcel(data: FormData): Promise<void> {
