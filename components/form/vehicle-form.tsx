@@ -398,45 +398,59 @@ export function VehicleForm() {
 
       {/* 4. Yakıt */}
       <Section title="YAKIT DURUMU">
-        <Field label="Depo doluluk seviyesi">
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="group" aria-label="Yakıt deposu doluluk seviyesi">
-            {[1, 2, 3, 4].map((level) => {
-              const selected = data.yakitSeviyesi >= level
-              const label = level === 1 ? "¼" : level === 2 ? "½" : level === 3 ? "¾" : "Dolu"
-              return (
-                <button
-                  key={level}
-                  type="button"
-                  aria-label={`Depo ${label}`}
-                  aria-pressed={selected}
-                  onClick={() => {
-                    set("yakitAlindi", "Evet")
-                    set("yakitSeviyesi", level as 0 | 1 | 2 | 3 | 4)
-                  }}
-                  className={`rounded-xl border px-3 py-3 text-center transition ${selected ? "border-foreground bg-foreground text-background" : "border-border bg-background text-foreground hover:bg-muted"}`}
-                >
-                  <span className="block text-xl leading-none">{selected ? "■" : "□"}</span>
-                  <span className="mt-1 block text-xs font-medium">{label}</span>
-                </button>
-              )
-            })}
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              set("yakitAlindi", "Hayır")
-              set("yakitSeviyesi", 0)
-            }}
-            className={`mt-2 w-full rounded-xl border px-3 py-2 text-sm font-medium ${data.yakitSeviyesi === 0 ? "border-foreground bg-foreground text-background" : "border-border hover:bg-muted"}`}
-          >
-            Yakıt alınmadı
-          </button>
-        </Field>
-        {data.yakitSeviyesi > 0 && (
-          <Field label="Yakıt Alınan Tarih" htmlFor="yakitTarihi" required>
-            <TextInput id="yakitTarihi" type="date" value={data.yakitTarihi} onChange={(e) => set("yakitTarihi", e.target.value)} />
-          </Field>
-        )}
+        <div className="grid gap-4">
+          {[1, 2, 3].map((trip) => {
+            const driverKey = `sofor${trip}` as "sofor1" | "sofor2" | "sofor3"
+            const levelKey = `yakitSeviyesi${trip}` as "yakitSeviyesi1" | "yakitSeviyesi2" | "yakitSeviyesi3"
+            const takenKey = `yakitAlindi${trip}` as "yakitAlindi1" | "yakitAlindi2" | "yakitAlindi3"
+            const dateKey = `yakitTarihi${trip}` as "yakitTarihi1" | "yakitTarihi2" | "yakitTarihi3"
+            const level = data[levelKey]
+            return (
+              <div key={trip} className="rounded-xl border border-border/60 p-3">
+                <div className="mb-3 text-sm font-semibold">{trip}. Şoför: {data[driverKey] || "Seçilmedi"}</div>
+                <Field label="Depo doluluk seviyesi">
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="group" aria-label={`${trip}. şoför yakıt deposu doluluk seviyesi`}>
+                    {[1, 2, 3, 4].map((nextLevel) => {
+                      const selected = level >= nextLevel
+                      const label = nextLevel === 1 ? "¼" : nextLevel === 2 ? "½" : nextLevel === 3 ? "¾" : "Dolu"
+                      return (
+                        <button
+                          key={nextLevel}
+                          type="button"
+                          aria-label={`${trip}. şoför depo ${label}`}
+                          aria-pressed={selected}
+                          onClick={() => {
+                            set(takenKey, "Evet")
+                            set(levelKey, nextLevel as 0 | 1 | 2 | 3 | 4)
+                          }}
+                          className={`rounded-xl border px-3 py-3 text-center transition ${selected ? "border-foreground bg-foreground text-background" : "border-border bg-background text-foreground hover:bg-muted"}`}
+                        >
+                          <span className="block text-xl leading-none">{selected ? "■" : "□"}</span>
+                          <span className="mt-1 block text-xs font-medium">{label}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      set(takenKey, "Hayır")
+                      set(levelKey, 0)
+                    }}
+                    className={`mt-2 w-full rounded-xl border px-3 py-2 text-sm font-medium ${level === 0 ? "border-foreground bg-foreground text-background" : "border-border hover:bg-muted"}`}
+                  >
+                    Yakıt alınmadı
+                  </button>
+                </Field>
+                {level > 0 && (
+                  <Field label="Yakıt Alınan Tarih" htmlFor={dateKey} required>
+                    <TextInput id={dateKey} type="date" value={data[dateKey]} onChange={(e) => set(dateKey, e.target.value)} />
+                  </Field>
+                )}
+              </div>
+            )
+          })}
+        </div>
       </Section>
 
       {/* 5. Kontrol listesi */}

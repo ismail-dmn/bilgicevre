@@ -44,6 +44,15 @@ export interface FormData {
   yakitAlindi: "Evet" | "Hayır"
   yakitSeviyesi: 0 | 1 | 2 | 3 | 4
   yakitTarihi: string
+  yakitAlindi1: "Evet" | "Hayır"
+  yakitAlindi2: "Evet" | "Hayır"
+  yakitAlindi3: "Evet" | "Hayır"
+  yakitSeviyesi1: 0 | 1 | 2 | 3 | 4
+  yakitSeviyesi2: 0 | 1 | 2 | 3 | 4
+  yakitSeviyesi3: 0 | 1 | 2 | 3 | 4
+  yakitTarihi1: string
+  yakitTarihi2: string
+  yakitTarihi3: string
 
   // Kontrol listesi + ekipman
   kontrol: Record<string, KontrolMaddesi>
@@ -90,6 +99,15 @@ export function createEmptyForm(taslakNo: string): FormData {
     yakitAlindi: "Hayır",
     yakitSeviyesi: 0,
     yakitTarihi: "",
+    yakitAlindi1: "Hayır",
+    yakitAlindi2: "Hayır",
+    yakitAlindi3: "Hayır",
+    yakitSeviyesi1: 0,
+    yakitSeviyesi2: 0,
+    yakitSeviyesi3: 0,
+    yakitTarihi1: "",
+    yakitTarihi2: "",
+    yakitTarihi3: "",
     kontrol,
     ekipman,
   }

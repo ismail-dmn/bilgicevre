@@ -67,11 +67,14 @@ export function mapFormDataToExcelClient(worksheet: any, formData: FormData): vo
 
   const defaultPersoneller = [formData.sofor2, formData.sofor3].filter(Boolean).join(", ")
   const driversByTrip = [formData.sofor1, formData.sofor2, formData.sofor3]
-  const fuelLevel = Math.max(0, Math.min(4, Number(formData.yakitSeviyesi || 0)))
-  const fuelLabel = fuelLevel === 1 ? "¼" : fuelLevel === 2 ? "½" : fuelLevel === 3 ? "¾" : fuelLevel === 4 ? "1" : ""
-  const fuelValue = fuelLevel > 0
-    ? `${Array.from({ length: 4 }, (_, index) => index < fuelLevel ? "■" : "□").join("│")}\n${fuelLabel}`
-    : ""
+  const fuelLevels = [formData.yakitSeviyesi1, formData.yakitSeviyesi2, formData.yakitSeviyesi3].map((value) => Math.max(0, Math.min(4, Number(value || 0))))
+  const fuelValues = fuelLevels.map((fuelLevel) => {
+    const fuelLabel = fuelLevel === 1 ? "¼" : fuelLevel === 2 ? "½" : fuelLevel === 3 ? "¾" : fuelLevel === 4 ? "1" : ""
+    return fuelLevel > 0
+      ? `${Array.from({ length: 4 }, (_, index) => index < fuelLevel ? "■" : "□").join("│")}\n${fuelLabel}`
+      : ""
+  })
+  const fuelDates = [formData.yakitTarihi1, formData.yakitTarihi2, formData.yakitTarihi3]
   const trips = [
     { gidis: formData.gidisKm1, donus: formData.donusKm1, guzergah: formData.guzergah1 || formData.guzergah, personeller: formData.personeller1 || defaultPersoneller },
     { gidis: formData.gidisKm2, donus: formData.donusKm2, guzergah: formData.guzergah2, personeller: formData.personeller2 || defaultPersoneller },
@@ -88,8 +91,8 @@ export function mapFormDataToExcelClient(worksheet: any, formData: FormData): vo
     worksheet.getCell(cellAddress(CELL_COLUMNS.kontrolCamKaporta, row)).value = cam
     worksheet.getCell(cellAddress(CELL_COLUMNS.kontrolLastik, row)).value = lastik
     worksheet.getCell(cellAddress(CELL_COLUMNS.kontrolFarKorna, row)).value = farKorna
-    worksheet.getCell(cellAddress(CELL_COLUMNS.yakitDurumu, row)).value = fuelValue
-    worksheet.getCell(cellAddress(CELL_COLUMNS.yakit, row)).value = formData.yakitAlindi === "Evet" ? fmtTarih(formData.yakitTarihi) : "-"
+    worksheet.getCell(cellAddress(CELL_COLUMNS.yakitDurumu, row)).value = fuelValues[index] || ""
+    worksheet.getCell(cellAddress(CELL_COLUMNS.yakit, row)).value = fuelLevels[index] > 0 ? fmtTarih(fuelDates[index] || "") : "-"
     worksheet.getCell(cellAddress(CELL_COLUMNS.guzergah, row)).value = `${guzergah || ""}${trips.length > 1 ? `\n(${index + 1}. Sefer)` : ""}`
     worksheet.getCell(cellAddress(CELL_COLUMNS.personel, row)).value = personeller || ""
     worksheet.getCell(cellAddress(CELL_COLUMNS.kmBaslangic, row)).value = gidis ? Number(gidis) || gidis : ""
