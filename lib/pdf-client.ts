@@ -1,38 +1,115 @@
-import { jsPDF } from "jspdf"
-import autoTable from "jspdf-autotable"
+import { PDFDocument, rgb } from "pdf-lib"
+import fontkit from "@pdf-lib/fontkit"
 import type { FormData } from "./form-types"
-import { EQUIPMENT_ITEMS } from "./form-config"
 import { ROBOTO_REGULAR_B64 } from "./font-data"
 
+const MONTHS: Record<string, string> = {
+  "01": "OCAK", "02": "ŞUBAT", "03": "MART", "04": "NİSAN", "05": "MAYIS", "06": "HAZİRAN",
+  "07": "TEMMUZ", "08": "AĞUSTOS", "09": "EYLÜL", "10": "EKİM", "11": "ARALIK", "12": "ARALIK",
+}
+
 function fmtTarih(iso: string): string {
-  if (!iso) return "-"
-  const [y, m, d] = iso.split("-")
-  return y && m && d ? `${d}.${m}.${y}` : iso
+  if (!iso) return ""
+  const [year, month, day] = iso.split("-")
+  return year && month && day ? `${day}.${month}.${year}` : iso
 }
-const MONTHS: Record<string, string> = {"01":"OCAK","02":"ŞUBAT","03":"MART","04":"NİSAN","05":"MAYIS","06":"HAZİRAN","07":"TEMMUZ","08":"AĞUSTOS","09":"EYLÜL","10":"EKİM","11":"KASIM","12":"ARALIK"}
-function checkText(item: { durum?: string; aciklama?: string } | undefined): string {
-  return item?.durum === "Uygun Değil" ? `□ Kontrol Edildi.\n■ Uygun değil.\n□ Diğer: ${item.aciklama || "Belirtilmedi"}` : "■ Kontrol Edildi.\n□ Uygun değil.\n□ Diğer…..............."
+
+function toBytes(base64: string): Uint8Array {
+  const binary = atob(base64)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i)
+  return bytes
 }
-function rowsFor(data: FormData) {
-  const trips = [[data.gidisKm1,data.donusKm1],[data.gidisKm2,data.donusKm2],[data.gidisKm3,data.donusKm3]].filter(([a,b]) => a || b) as string[][]
-  if (!trips.length) trips.push(["", ""])
-  const farKorna = ["farlar","korna","silecek","camlar"].map(k => data.kontrol[k]).find(x => x?.durum === "Uygun Değil")
-  return trips.map((trip, i) => [data.sofor1 || "", fmtTarih(data.tarih), checkText(data.kontrol["cam_kaporta"]), checkText(data.kontrol["lastikler"]), checkText(farKorna), data.yakitAlindi || "Hayır", data.yakitAlindi === "Evet" ? fmtTarih(data.yakitTarihi) : "-", `${data.guzergah || ""}${trips.length > 1 ? `\n(${i + 1}. Sefer)` : ""}`, [data.sofor2,data.sofor3].filter(Boolean).join(", "), trip[0] || "", trip[1] || "", `${data.cikisSaati || "-"} - ${data.donusSaati || "-"}`, ""])
+
+function fuelText(level: number): string {
+  const safe = Math.max(0, Math.min(4, Number(level || 0)))
+  if (!safe) return ""
+  const label = safe === 1 ? "¼" : safe === 2 ? "½" : safe === 3 ? "¾" : "1"
+  return `${Array.from({ length: 4 }, (_, index) => index < safe ? "■" : "□").join("│")}\n${label}`
 }
-export async function generatePDF(data: FormData): Promise<Blob> {
-  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" })
-  doc.addFileToVFS("Roboto-Regular.ttf", ROBOTO_REGULAR_B64); doc.addFont("Roboto-Regular.ttf", "Roboto", "normal"); doc.setFont("Roboto")
-  const date = data.tarih || new Date().toISOString().slice(0, 10), [year, month] = date.split("-"), title = `${year || ""}-${MONTHS[month] || "AY"} AYI GÜNLÜK ARAÇ KULLANIMI TAKİP ÇİZELGESİ`
-  const rows = rowsFor(data)
-  ;[[1,62],[63,124],[125,186]].forEach(([start,end], pageIndex) => {
-    if (pageIndex) doc.addPage()
-    doc.setDrawColor(40); doc.setLineWidth(.25); doc.rect(7,7,283,185); doc.setTextColor(0)
-    doc.setFontSize(13); doc.text("BİLGİÇEVRE",148.5,14,{align:"center"}); doc.setFontSize(9); doc.text(title,148.5,20,{align:"center"}); doc.setFontSize(7)
-    doc.text(`Doküman No: 19-BÇ-001    Taslak No: ${data.taslakNo || "-"}`,12,27); doc.text(`Lokasyon: ${data.lokasyon || "-"}    Plaka: ${data.plaka || "-"}`,188,27)
-    autoTable(doc,{startY:31,margin:{left:9,right:9},head:[["SÜRÜCÜ AD-SOYAD","TARİH","CAM / KAPORTA","LASTİKLER","FAR / KORNA / SİL. / CAM","YAKIT","YAKIT TAR.","GÜZERGAH","PERSONEL","KM BAŞ.","KM BİT.","SAAT","İMZA"]],body:pageIndex===0&&rows.length?rows:[["","","","","","","","","","","","",""]],theme:"grid",styles:{font:"Roboto",fontSize:6.1,cellPadding:1.2,lineColor:[50,50,50],textColor:[0,0,0],valign:"middle",minCellHeight:18},headStyles:{fillColor:[235,235,235],textColor:[0,0,0],fontStyle:"bold",fontSize:5.7,halign:"center",minCellHeight:10},columnStyles:{0:{cellWidth:25},1:{cellWidth:17},2:{cellWidth:28},3:{cellWidth:27},4:{cellWidth:31},5:{cellWidth:13},6:{cellWidth:17},7:{cellWidth:29},8:{cellWidth:24},9:{cellWidth:15},10:{cellWidth:15},11:{cellWidth:22},12:{cellWidth:17}},didDrawPage:()=>{doc.setFontSize(6);doc.text(`Şablon sayfası ${pageIndex+1}/3 — Excel satır aralığı ${start}-${end}`,148.5,198,{align:"center"})}})
-    const finalY=(doc as any).lastAutoTable.finalY as number
-    if(pageIndex===2){const missing=EQUIPMENT_ITEMS.filter(e=>!data.ekipman[e.id]).map(e=>e.label).join(", ")||"Yok";doc.setFontSize(7);doc.text(`Eksik ekipman: ${missing}`,12,Math.min(finalY+9,182));doc.text("Sürücü İmzası: ____________________        Kontrol Eden: ____________________",12,188)}
+
+function controlText(item: { durum?: string; aciklama?: string } | undefined): string {
+  if (item?.durum === "Uygun Değil") return `□ Uygun değil: ${item.aciklama || "Belirtilmedi"}`
+  return "■ Uygun"
+}
+
+function drawCell(page: any, font: any, text: string, x: number, top: number, width: number, height: number, size = 6.2) {
+  if (!text) return
+  const lines = String(text).split("\n")
+  const lineHeight = size + 1
+  const startY = page.getHeight() - top - size - Math.max(0, (height - lines.length * lineHeight) / 2)
+  lines.slice(0, 3).forEach((line, index) => {
+    const value = line.length > 34 ? `${line.slice(0, 33)}…` : line
+    page.drawText(value, { x: x + 2, y: startY - index * lineHeight, size, font, color: rgb(0, 0, 0), maxWidth: width - 4 })
   })
-  return doc.output("blob")
 }
-export function pdfFileName(data: FormData): string { const tarih=data.tarih||new Date().toISOString().slice(0,10); const plaka=(data.plaka||"Arac").replace(/[^a-z0-9]/gi,"_"); return `Gunluk_Arac_Kullanim_Takip_Cizelgesi_${tarih}_${plaka}.pdf` }
+
+function coverCell(page: any, x: number, top: number, width: number, height: number) {
+  page.drawRectangle({
+    x,
+    y: page.getHeight() - top - height,
+    width,
+    height,
+    color: rgb(1, 1, 1),
+    opacity: 0.94,
+  })
+}
+
+export async function generatePDF(data: FormData): Promise<Blob> {
+  const response = await fetch("/data/sablon.pdf", { cache: "no-store" })
+  if (!response.ok) throw new Error("PDF şablonu yüklenemedi.")
+  const source = await response.arrayBuffer()
+  const pdf = await PDFDocument.load(source)
+  pdf.registerFontkit(fontkit)
+  const font = await pdf.embedFont(toBytes(ROBOTO_REGULAR_B64), { subset: true })
+  const page = pdf.getPages()[0]
+  const date = data.tarih || new Date().toISOString().slice(0, 10)
+  const [year, month] = date.split("-")
+
+  // Şablonun başlık ve üst bilgi alanlarını form verileriyle güncelle.
+  coverCell(page, 120, 58, 255, 15)
+  page.drawText(`${year || ""}-${MONTHS[month] || "AY"} AYI GÜNLÜK ARAÇ KULLANIMI TAKİP ÇİZELGESİ`, {
+    x: 124, y: page.getHeight() - 58 - 10, size: 10, font, color: rgb(0, 0, 0), maxWidth: 250,
+  })
+  coverCell(page, 18, 94, 130, 14)
+  drawCell(page, font, `Lokasyon: ${data.lokasyon || "-"}`, 18, 94, 80, 14, 6.5)
+  drawCell(page, font, `Plaka: ${data.plaka || "-"}`, 98, 94, 50, 14, 6.5)
+
+  const trips = [
+    { driver: data.sofor1, route: data.guzergah1 || data.guzergah, staff: data.personeller1, start: data.gidisKm1, end: data.donusKm1, from: data.cikisSaati1 || data.cikisSaati, to: data.donusSaati1 || data.donusSaati, fuel: data.yakitSeviyesi1, fuelDate: data.yakitTarihi1 },
+    { driver: data.sofor2, route: data.guzergah2, staff: data.personeller2, start: data.gidisKm2, end: data.donusKm2, from: data.cikisSaati2, to: data.donusSaati2, fuel: data.yakitSeviyesi2, fuelDate: data.yakitTarihi2 },
+    { driver: data.sofor3, route: data.guzergah3, staff: data.personeller3, start: data.gidisKm3, end: data.donusKm3, from: data.cikisSaati3, to: data.donusSaati3, fuel: data.yakitSeviyesi3, fuelDate: data.yakitTarihi3 },
+  ]
+
+  // sablon.pdf tablo satırları: üstten yaklaşık 137 mm değil, PDF point koordinatında 137 pt civarıdır.
+  const rowTop = 137
+  const rowHeight = 28
+  trips.forEach((trip, index) => {
+    const top = rowTop + index * rowHeight
+    // Veri hücrelerinin içini temizler, şablonun çizgilerini ve kontrol kutularını korur.
+    ;[[18, 49], [67, 29], [96, 25], [238, 28], [266, 29], [295, 83], [378, 32], [410, 25], [435, 25], [460, 31]].forEach(([x, width]) => coverCell(page, x, top, width, rowHeight))
+    drawCell(page, font, trip.driver || "", 18, top, 49, rowHeight)
+    drawCell(page, font, fmtTarih(data.tarih), 67, top, 29, rowHeight)
+    drawCell(page, font, data.plaka || "", 96, top, 25, rowHeight)
+    drawCell(page, font, fuelText(trip.fuel), 238, top, 28, rowHeight, 5.5)
+    drawCell(page, font, trip.fuel ? fmtTarih(trip.fuelDate || "") : "-", 266, top, 29, rowHeight, 5.5)
+    drawCell(page, font, trip.route || "", 295, top, 83, rowHeight, 5.7)
+    drawCell(page, font, trip.staff || "", 378, top, 32, rowHeight, 5.5)
+    drawCell(page, font, trip.start || "", 410, top, 25, rowHeight, 6)
+    drawCell(page, font, trip.end || "", 435, top, 25, rowHeight, 6)
+    drawCell(page, font, `${trip.from || "-"} - ${trip.to || "-"}`, 460, top, 31, rowHeight, 5.5)
+  })
+
+  // Kontrol hücrelerinin mevcut şablon kutularını bozmadan seçili açıklamaları ekle.
+  const controls = [data.kontrol["cam_kaporta"], data.kontrol["lastikler"], data.kontrol["farlar"]]
+  controls.forEach((item, index) => drawCell(page, font, controlText(item), 123 + index * 38, rowTop, 36, rowHeight, 4.8))
+
+  const bytes = await pdf.save()
+  return new Blob([bytes], { type: "application/pdf" })
+}
+
+export function pdfFileName(data: FormData): string {
+  const tarih = data.tarih || new Date().toISOString().slice(0, 10)
+  const plaka = (data.plaka || "Arac").replace(/[^a-z0-9]/gi, "_")
+  return `Gunluk_Arac_Kullanim_Takip_Cizelgesi_${tarih}_${plaka}.pdf`
+}

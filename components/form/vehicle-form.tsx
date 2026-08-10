@@ -16,8 +16,7 @@ import {
 import { FormHeader } from "./form-header"
 import { RulesAccordion } from "./rules-accordion"
 // import { ShareModal } from "./share-modal"
-import { excelFileName } from "@/lib/excel-client"
-import { generateExcelInBrowser } from "@/lib/excel-browser"
+import { generatePDF, pdfFileName } from "@/lib/pdf-client"
 import { CORPORATE_EMAIL, CORPORATE_WHATSAPP } from "@/lib/form-config"
 import { VEHICLES, LOCATIONS, DRIVERS_BY_LOCATION, CHECKLIST_ITEMS, EQUIPMENT_ITEMS } from "@/lib/form-config"
 import {
@@ -108,10 +107,6 @@ export function VehicleForm() {
     return v.replace(/[^\d]/g, "")
   }
 
-  async function fetchExcelBlob(formData: FormData): Promise<Blob> {
-    return generateExcelInBrowser(formData)
-  }
-
   async function handleShare() {
     if (!data) return
     const errs = validateForm(data)
@@ -123,12 +118,12 @@ export function VehicleForm() {
 
     setIsExporting(true)
     try {
-      const excelBlob = await fetchExcelBlob(data)
-      const fileName = excelFileName(data)
-      const file = new File([excelBlob], fileName, { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })
+      const pdfBlob = await generatePDF(data)
+      const fileName = pdfFileName(data)
+      const file = new File([pdfBlob], fileName, { type: "application/pdf" })
 
-      const downloadExcel = () => {
-        const url = URL.createObjectURL(excelBlob)
+      const downloadPdf = () => {
+        const url = URL.createObjectURL(pdfBlob)
         const a = document.createElement("a")
         a.href = url
         a.download = fileName
@@ -142,7 +137,7 @@ export function VehicleForm() {
           `Plaka: ${data.plaka || "-"}`,
           `Şoför: ${data.sofor1 || "-"}`,
           `Taslak No: ${data.taslakNo}`,
-          "Doldurulmuş Excel dosyası indirildi; lütfen mesajınıza veya e-postanıza ekleyin.",
+          "Doldurulmuş PDF çizelgesi indirildi; lütfen mesajınıza veya e-postanıza ekleyin.",
         ].join("\\n")
         const encodedText = encodeURIComponent(text)
         const whatsappTarget = CORPORATE_WHATSAPP ? `https://wa.me/${CORPORATE_WHATSAPP}` : "https://wa.me/"
@@ -152,7 +147,7 @@ export function VehicleForm() {
           email: `mailto:${CORPORATE_EMAIL}?subject=${encodeURIComponent("Günlük Araç Kullanım Formu")}&body=${encodedText}`,
         })
         setShareOpen(true)
-        setToast("Excel dosyası oluşturuldu. Paylaşım kanalını seçin.")
+        setToast("PDF çizelgesi oluşturuldu. Paylaşım kanalını seçin.")
       }
 
       // Dosya üretimi asenkron olduğu için bazı tarayıcılar navigator.share çağrısında
@@ -162,22 +157,22 @@ export function VehicleForm() {
         try {
           await navigator.share({
             title: "Günlük Araç Kullanım Formu",
-            text: `${data.plaka || "Araç"} - ${data.tarih} tarihli kullanım formu ekte yer almaktadır.`,
+            text: `${data.plaka || "Araç"} - ${data.tarih} tarihli PDF çizelgesi ekte yer almaktadır.`,
             files: [file],
           })
-          setToast("Form başarıyla paylaşıldı.")
+          setToast("PDF çizelgesi başarıyla paylaşıldı.")
         } catch (shareError) {
           const message = shareError instanceof Error ? shareError.message.toLowerCase() : ""
           if (shareError instanceof DOMException && shareError.name === "AbortError") {
             setToast("Paylaşım iptal edildi.")
           } else if (message.includes("permission") || message.includes("not allowed") || message.includes("user activation")) {
-            downloadExcel()
+            downloadPdf()
           } else {
             throw shareError
           }
         }
       } else {
-        downloadExcel()
+        downloadPdf()
       }
     } catch (err) {
       console.error("Paylaşım hatası:", err)
@@ -482,7 +477,7 @@ export function VehicleForm() {
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold">Paylaşım seçenekleri</h2>
-                <p className="text-sm text-muted-foreground">Excel dosyası indirildi. Kanal seçin.</p>
+                <p className="text-sm text-muted-foreground">Doldurulmuş PDF çizelgesi hazır. Kanal seçin.</p>
               </div>
               <button type="button" onClick={() => setShareOpen(false)} className="rounded-full p-2 hover:bg-muted" aria-label="Kapat">
                 <X className="size-5" />
@@ -494,7 +489,7 @@ export function VehicleForm() {
                 onClick={async () => {
                   if (shareFile && navigator.canShare?.({ files: [shareFile] })) {
                     try {
-                      await navigator.share({ files: [shareFile], title: "Günlük Araç Kullanım Formu", text: "Excel dosyası ektedir." })
+                      await navigator.share({ files: [shareFile], title: "Günlük Araç Kullanım Formu", text: "Doldurulmuş PDF çizelgesi ektedir." })
                       setShareOpen(false)
                       return
                     } catch (error) {
@@ -505,14 +500,14 @@ export function VehicleForm() {
                 }}
                 className="flex items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 py-3 font-semibold text-white"
               >
-                <MessageCircle className="size-5" /> WhatsApp ile Excel gönder
+                <MessageCircle className="size-5" /> WhatsApp ile PDF gönder
               </button>
               <button
                 type="button"
                 onClick={async () => {
                   if (shareFile && navigator.canShare?.({ files: [shareFile] })) {
                     try {
-                      await navigator.share({ files: [shareFile], title: "Günlük Araç Kullanım Formu", text: "Excel dosyası ektedir." })
+                      await navigator.share({ files: [shareFile], title: "Günlük Araç Kullanım Formu", text: "Doldurulmuş PDF çizelgesi ektedir." })
                       setShareOpen(false)
                       return
                     } catch (error) {
@@ -523,7 +518,7 @@ export function VehicleForm() {
                 }}
                 className="flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 font-semibold text-primary-foreground"
               >
-                <Mail className="size-5" /> E-posta ile Excel gönder
+                <Mail className="size-5" /> E-posta ile PDF gönder
               </button>
             </div>
           </div>
