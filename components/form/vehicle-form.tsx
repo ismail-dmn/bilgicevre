@@ -49,6 +49,7 @@ export function VehicleForm() {
   const [toast, setToast] = useState<string | null>(null)
   const [shareOpen, setShareOpen] = useState(false)
   const [shareLinks, setShareLinks] = useState<{ whatsapp: string; email: string } | null>(null)
+  const [shareFile, setShareFile] = useState<File | null>(null)
   const [isExporting, setIsExporting] = useState(false)
   const loaded = useRef(false)
 
@@ -145,6 +146,7 @@ export function VehicleForm() {
         ].join("\\n")
         const encodedText = encodeURIComponent(text)
         const whatsappTarget = CORPORATE_WHATSAPP ? `https://wa.me/${CORPORATE_WHATSAPP}` : "https://wa.me/"
+        setShareFile(file)
         setShareLinks({
           whatsapp: `${whatsappTarget}?text=${encodedText}`,
           email: `mailto:${CORPORATE_EMAIL}?subject=${encodeURIComponent("Günlük Araç Kullanım Formu")}&body=${encodedText}`,
@@ -353,9 +355,33 @@ export function VehicleForm() {
             <NumberInput id="donusKm3" value={data.donusKm3} onChange={(e) => set("donusKm3", onlyDigits(e.target.value))} />
           </Field>
         </div>
-        <Field label="Güzergah / Açıklama" htmlFor="guzergah">
-          <Textarea id="guzergah" value={data.guzergah} onChange={(e) => set("guzergah", e.target.value)} placeholder="Örn: Kadıköy - Gebze Şantiye - Kadıköy" />
-        </Field>
+        <div className="grid gap-3">
+          {[1, 2, 3].map((trip) => {
+            const routeKey = `guzergah${trip}` as "guzergah1" | "guzergah2" | "guzergah3"
+            const staffKey = `personeller${trip}` as "personeller1" | "personeller2" | "personeller3"
+            return (
+              <div key={trip} className="grid gap-3 rounded-xl border border-border/60 p-3">
+                <div className="text-sm font-semibold text-foreground">{trip}. Sefer</div>
+                <Field label="Araç Kullanımı / Güzergahı" htmlFor={routeKey}>
+                  <Textarea
+                    id={routeKey}
+                    value={data[routeKey]}
+                    onChange={(e) => set(routeKey, e.target.value)}
+                    placeholder="Örn: Kadıköy - Gebze Şantiye - Kadıköy"
+                  />
+                </Field>
+                <Field label="Araçtaki Görevli Personeller" htmlFor={staffKey} hint="Birden fazla kişi için virgül kullanabilirsiniz">
+                  <TextInput
+                    id={staffKey}
+                    value={data[staffKey]}
+                    onChange={(e) => set(staffKey, e.target.value)}
+                    placeholder="Örn: Ahmet Yılmaz, Ayşe Demir"
+                  />
+                </Field>
+              </div>
+            )
+          })}
+        </div>
       </Section>
 
       {/* 3. Saatler */}
@@ -476,12 +502,42 @@ export function VehicleForm() {
               </button>
             </div>
             <div className="grid gap-3">
-              <a href={shareLinks.whatsapp} target="_blank" rel="noreferrer" onClick={() => setShareOpen(false)} className="flex items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 py-3 font-semibold text-white">
-                <MessageCircle className="size-5" /> WhatsApp
-              </a>
-              <a href={shareLinks.email} onClick={() => setShareOpen(false)} className="flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 font-semibold text-primary-foreground">
-                <Mail className="size-5" /> E-posta
-              </a>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (shareFile && navigator.canShare?.({ files: [shareFile] })) {
+                    try {
+                      await navigator.share({ files: [shareFile], title: "Günlük Araç Kullanım Formu", text: "Excel dosyası ektedir." })
+                      setShareOpen(false)
+                      return
+                    } catch (error) {
+                      if (error instanceof DOMException && error.name === "AbortError") return
+                    }
+                  }
+                  window.open(shareLinks.whatsapp, "_blank", "noopener,noreferrer")
+                }}
+                className="flex items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 py-3 font-semibold text-white"
+              >
+                <MessageCircle className="size-5" /> WhatsApp ile Excel gönder
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (shareFile && navigator.canShare?.({ files: [shareFile] })) {
+                    try {
+                      await navigator.share({ files: [shareFile], title: "Günlük Araç Kullanım Formu", text: "Excel dosyası ektedir." })
+                      setShareOpen(false)
+                      return
+                    } catch (error) {
+                      if (error instanceof DOMException && error.name === "AbortError") return
+                    }
+                  }
+                  window.location.href = shareLinks.email
+                }}
+                className="flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 font-semibold text-primary-foreground"
+              >
+                <Mail className="size-5" /> E-posta ile Excel gönder
+              </button>
             </div>
           </div>
         </div>

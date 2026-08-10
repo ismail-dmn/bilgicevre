@@ -65,16 +65,16 @@ export function mapFormDataToExcelClient(worksheet: any, formData: FormData): vo
     aciklama: uygunsuz.map((key) => kontrol[key]?.aciklama).filter(Boolean).join(", "),
   } : { durum: "Uygun" })
 
+  const defaultPersoneller = [formData.sofor2, formData.sofor3].filter(Boolean).join(", ")
   const trips = [
-    [formData.gidisKm1, formData.donusKm1],
-    [formData.gidisKm2, formData.donusKm2],
-    [formData.gidisKm3, formData.donusKm3],
-  ].filter(([a, b]) => a || b)
-  if (!trips.length) trips.push(["", ""])
+    { gidis: formData.gidisKm1, donus: formData.donusKm1, guzergah: formData.guzergah1 || formData.guzergah, personeller: formData.personeller1 || defaultPersoneller },
+    { gidis: formData.gidisKm2, donus: formData.donusKm2, guzergah: formData.guzergah2, personeller: formData.personeller2 || defaultPersoneller },
+    { gidis: formData.gidisKm3, donus: formData.donusKm3, guzergah: formData.guzergah3, personeller: formData.personeller3 || defaultPersoneller },
+  ].filter((trip) => trip.gidis || trip.donus || trip.guzergah || trip.personeller)
+  if (!trips.length) trips.push({ gidis: "", donus: "", guzergah: "", personeller: "" })
 
-  const personeller = [formData.sofor2, formData.sofor3].filter(Boolean).join(", ")
   const saat = `${formData.cikisSaati || "-"} - ${formData.donusSaati || "-"}`
-  trips.forEach(([gidis, donus], index) => {
+  trips.forEach(({ gidis, donus, guzergah, personeller }, index) => {
     const row = DATA_ROW + index
     worksheet.getCell(cellAddress(CELL_COLUMNS.surucu, row)).value = formData.sofor1 || ""
     worksheet.getCell(cellAddress(CELL_COLUMNS.plaka, row)).value = formData.plaka || ""
@@ -84,8 +84,8 @@ export function mapFormDataToExcelClient(worksheet: any, formData: FormData): vo
     worksheet.getCell(cellAddress(CELL_COLUMNS.kontrolFarKorna, row)).value = farKorna
     worksheet.getCell(cellAddress(CELL_COLUMNS.yakitDurumu, row)).value = formData.yakitAlindi || ""
     worksheet.getCell(cellAddress(CELL_COLUMNS.yakit, row)).value = formData.yakitAlindi === "Evet" ? fmtTarih(formData.yakitTarihi) : "-"
-    worksheet.getCell(cellAddress(CELL_COLUMNS.guzergah, row)).value = `${formData.guzergah || ""}${trips.length > 1 ? `\n(${index + 1}. Sefer)` : ""}`
-    worksheet.getCell(cellAddress(CELL_COLUMNS.personel, row)).value = personeller
+    worksheet.getCell(cellAddress(CELL_COLUMNS.guzergah, row)).value = `${guzergah || ""}${trips.length > 1 ? `\n(${index + 1}. Sefer)` : ""}`
+    worksheet.getCell(cellAddress(CELL_COLUMNS.personel, row)).value = personeller || ""
     worksheet.getCell(cellAddress(CELL_COLUMNS.kmBaslangic, row)).value = gidis ? Number(gidis) || gidis : ""
     worksheet.getCell(cellAddress(CELL_COLUMNS.kmBitis, row)).value = donus ? Number(donus) || donus : ""
     worksheet.getCell(cellAddress(CELL_COLUMNS.saat, row)).value = saat

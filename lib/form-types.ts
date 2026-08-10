@@ -28,7 +28,13 @@ export interface FormData {
   donusKm2: string
   gidisKm3: string
   donusKm3: string
-  guzergah: string
+  guzergah: string // geriye dönük uyumluluk için genel güzergah
+  guzergah1: string
+  guzergah2: string
+  guzergah3: string
+  personeller1: string
+  personeller2: string
+  personeller3: string
 
   // Saatler
   cikisSaati: string
@@ -72,6 +78,12 @@ export function createEmptyForm(taslakNo: string): FormData {
     gidisKm3: "",
     donusKm3: "",
     guzergah: "",
+    guzergah1: "",
+    guzergah2: "",
+    guzergah3: "",
+    personeller1: "",
+    personeller2: "",
+    personeller3: "",
     cikisSaati: "",
     donusSaati: "",
     yakitAlindi: "Hayır",
