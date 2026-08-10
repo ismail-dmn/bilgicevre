@@ -1,6 +1,6 @@
 import type { FormData } from "./form-types"
 
-export const DATA_ROW = 11
+export const DATA_ROW = 12
 export const CELL_COLUMNS = {
   surucu: "A",
   tarih: "C",
@@ -19,8 +19,8 @@ export const CELL_COLUMNS = {
 } as const
 
 const cellAddress = (col: string, row: number) => `${col}${row}`
-// Şablonda üç sefer için ayrılmış gerçek veri satırları: 11, 12 ve 13.
-// 14. satırdan sonrası sabit kontrol/şablon içeriğidir ve silinmemelidir.
+// Şablonda üç sefer için ayrılmış gerçek veri satırları: 12, 13 ve 14.
+// 15. satırdan sonrası sabit kontrol/şablon içeriğidir ve silinmemelidir.
 const DATA_END_ROW = DATA_ROW + 2
 
 function clearPreviousEntries(worksheet: any): void {
