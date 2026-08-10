@@ -112,16 +112,7 @@ export function VehicleForm() {
       const fileName = excelFileName(data)
       const file = new File([excelBlob], fileName, { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })
 
-      // Web Share API desteği varsa (Mobil ve bazı masaüstü tarayıcılar)
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          title: "Günlük Araç Kullanım Formu",
-          text: `${data.plaka || "Araç"} - ${data.tarih} tarihli kullanım formu ekte yer almaktadır.`,
-          files: [file],
-        })
-        setToast("Form başarıyla paylaşıldı.")
-      } else {
-        // Destek yoksa (Masaüstü Chrome vb.) doğrudan indir
+      const downloadExcel = () => {
         const url = URL.createObjectURL(excelBlob)
         const a = document.createElement("a")
         a.href = url
@@ -131,6 +122,31 @@ export function VehicleForm() {
         document.body.removeChild(a)
         URL.revokeObjectURL(url)
         setToast("Excel dosyası oluşturuldu ve indirildi.")
+      }
+
+      // Dosya üretimi asenkron olduğu için bazı tarayıcılar navigator.share çağrısında
+      // kullanıcı iznini kaybedip "Permission denied" döndürebilir. Bu durumda
+      // işlemi başarısız göstermeden Excel dosyasını otomatik indiriyoruz.
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            title: "Günlük Araç Kullanım Formu",
+            text: `${data.plaka || "Araç"} - ${data.tarih} tarihli kullanım formu ekte yer almaktadır.`,
+            files: [file],
+          })
+          setToast("Form başarıyla paylaşıldı.")
+        } catch (shareError) {
+          const message = shareError instanceof Error ? shareError.message.toLowerCase() : ""
+          if (shareError instanceof DOMException && shareError.name === "AbortError") {
+            setToast("Paylaşım iptal edildi.")
+          } else if (message.includes("permission") || message.includes("not allowed") || message.includes("user activation")) {
+            downloadExcel()
+          } else {
+            throw shareError
+          }
+        }
+      } else {
+        downloadExcel()
       }
     } catch (err) {
       console.error("Paylaşım hatası:", err)
