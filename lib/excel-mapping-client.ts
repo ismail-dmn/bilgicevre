@@ -19,6 +19,18 @@ export const CELL_COLUMNS = {
 } as const
 
 const cellAddress = (col: string, row: number) => `${col}${row}`
+// Şablonda üç sefer için ayrılmış gerçek veri satırları: 30, 31 ve 32.
+// 33. satırdan sonrası sabit kontrol/şablon içeriğidir ve silinmemelidir.
+const DATA_END_ROW = DATA_ROW + 2
+
+function clearPreviousEntries(worksheet: any): void {
+  // Şablondaki örnek/eski kullanıcı kayıtlarını sil; hücre biçimleri korunur.
+  for (let row = DATA_ROW; row <= DATA_END_ROW; row += 1) {
+    for (const column of Object.values(CELL_COLUMNS)) {
+      worksheet.getCell(cellAddress(column, row)).value = ""
+    }
+  }
+}
 
 function fmtTarih(iso: string): string {
   if (!iso) return ""
@@ -34,6 +46,7 @@ function formatCheck(item: { durum?: string; aciklama?: string } | undefined): s
 }
 
 export function mapFormDataToExcelClient(worksheet: any, formData: FormData): void {
+  clearPreviousEntries(worksheet)
   const tarihStr = formData.tarih || new Date().toISOString().slice(0, 10)
   const [yil, ayNum] = tarihStr.split("-")
   const aylar: Record<string, string> = {
