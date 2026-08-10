@@ -42,6 +42,7 @@ export interface FormData {
 
   // Yakıt
   yakitAlindi: "Evet" | "Hayır"
+  yakitSeviyesi: 0 | 1 | 2 | 3 | 4
   yakitTarihi: string
 
   // Kontrol listesi + ekipman
@@ -87,6 +88,7 @@ export function createEmptyForm(taslakNo: string): FormData {
     cikisSaati: "",
     donusSaati: "",
     yakitAlindi: "Hayır",
+    yakitSeviyesi: 0,
     yakitTarihi: "",
     kontrol,
     ekipman,

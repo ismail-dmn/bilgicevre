@@ -67,7 +67,11 @@ export function mapFormDataToExcelClient(worksheet: any, formData: FormData): vo
 
   const defaultPersoneller = [formData.sofor2, formData.sofor3].filter(Boolean).join(", ")
   const driversByTrip = [formData.sofor1, formData.sofor2, formData.sofor3]
-  const fuelValue = formData.yakitAlindi === "Evet" ? "□□│□□│□□│□□\n½" : ""
+  const fuelLevel = Math.max(0, Math.min(4, Number(formData.yakitSeviyesi || 0)))
+  const fuelLabel = fuelLevel === 1 ? "¼" : fuelLevel === 2 ? "½" : fuelLevel === 3 ? "¾" : fuelLevel === 4 ? "1" : ""
+  const fuelValue = fuelLevel > 0
+    ? `${Array.from({ length: 4 }, (_, index) => index < fuelLevel ? "■" : "□").join("│")}\n${fuelLabel}`
+    : ""
   const trips = [
     { gidis: formData.gidisKm1, donus: formData.donusKm1, guzergah: formData.guzergah1 || formData.guzergah, personeller: formData.personeller1 || defaultPersoneller },
     { gidis: formData.gidisKm2, donus: formData.donusKm2, guzergah: formData.guzergah2, personeller: formData.personeller2 || defaultPersoneller },

@@ -398,17 +398,41 @@ export function VehicleForm() {
 
       {/* 4. Yakıt */}
       <Section title="YAKIT DURUMU">
-        <Field label="Yakıt alındı mı?">
-          <SegmentToggle
-            value={data.yakitAlindi}
-            onChange={(v) => set("yakitAlindi", v)}
-            options={[
-              { value: "Evet", label: "□□│□□│□□│□□ ½" },
-              { value: "Hayır", label: "Hayır" },
-            ]}
-          />
+        <Field label="Depo doluluk seviyesi">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="group" aria-label="Yakıt deposu doluluk seviyesi">
+            {[1, 2, 3, 4].map((level) => {
+              const selected = data.yakitSeviyesi >= level
+              const label = level === 1 ? "¼" : level === 2 ? "½" : level === 3 ? "¾" : "Dolu"
+              return (
+                <button
+                  key={level}
+                  type="button"
+                  aria-label={`Depo ${label}`}
+                  aria-pressed={selected}
+                  onClick={() => {
+                    set("yakitAlindi", "Evet")
+                    set("yakitSeviyesi", level as 0 | 1 | 2 | 3 | 4)
+                  }}
+                  className={`rounded-xl border px-3 py-3 text-center transition ${selected ? "border-foreground bg-foreground text-background" : "border-border bg-background text-foreground hover:bg-muted"}`}
+                >
+                  <span className="block text-xl leading-none">{selected ? "■" : "□"}</span>
+                  <span className="mt-1 block text-xs font-medium">{label}</span>
+                </button>
+              )
+            })}
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              set("yakitAlindi", "Hayır")
+              set("yakitSeviyesi", 0)
+            }}
+            className={`mt-2 w-full rounded-xl border px-3 py-2 text-sm font-medium ${data.yakitSeviyesi === 0 ? "border-foreground bg-foreground text-background" : "border-border hover:bg-muted"}`}
+          >
+            Yakıt alınmadı
+          </button>
         </Field>
-        {data.yakitAlindi === "Evet" && (
+        {data.yakitSeviyesi > 0 && (
           <Field label="Yakıt Alınan Tarih" htmlFor="yakitTarihi" required>
             <TextInput id="yakitTarihi" type="date" value={data.yakitTarihi} onChange={(e) => set("yakitTarihi", e.target.value)} />
           </Field>
