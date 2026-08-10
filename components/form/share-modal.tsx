@@ -20,6 +20,16 @@ async function fetchExcelBlob(data: FormData): Promise<Blob> {
 }
 
 // Excel dosyasını cihaza indir
+async function fetchTemplatePdf(data: FormData): Promise<Blob> {
+  const res = await fetch("/api/export-pdf", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) throw new Error("Excel şablonu PDF'ye dönüştürülemedi.")
+  return await res.blob()
+}
+
 async function downloadExcel(data: FormData): Promise<void> {
   const blob = await fetchExcelBlob(data)
   const url = URL.createObjectURL(blob)
@@ -82,7 +92,7 @@ export function ShareModal({
     setBusy("whatsapp")
     setActionResult(null)
     try {
-      const blob = await generatePDF(data)
+      const blob = await fetchTemplatePdf(data)
       const fileName = pdfFileName(data)
       const file = new File([blob], fileName, { type: "application/pdf" })
 
@@ -164,7 +174,7 @@ export function ShareModal({
     setBusy("pdf")
     setActionResult(null)
     try {
-      const blob = await generatePDF(data)
+      const blob = await fetchTemplatePdf(data)
       const fileName = pdfFileName(data)
       const file = new File([blob], fileName, { type: "application/pdf" })
 
@@ -206,7 +216,7 @@ export function ShareModal({
     setActionResult(null)
     try {
       // PDF'i oluştur ve indir (kullanıcıya kolaylık olsun diye)
-      const pdfBlob = await generatePDF(data)
+      const pdfBlob = await fetchTemplatePdf(data)
       const pdfName = pdfFileName(data)
       const url = URL.createObjectURL(pdfBlob)
       const a = document.createElement("a")
