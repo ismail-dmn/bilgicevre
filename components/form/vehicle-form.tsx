@@ -16,7 +16,8 @@ import {
 import { FormHeader } from "./form-header"
 import { RulesAccordion } from "./rules-accordion"
 // import { ShareModal } from "./share-modal"
-import { generatePDF, pdfFileName } from "@/lib/pdf-client"
+import { generateExcelInBrowser } from "@/lib/excel-browser"
+import { excelFileName } from "@/lib/excel-client"
 import { CORPORATE_EMAIL, CORPORATE_WHATSAPP } from "@/lib/form-config"
 import { VEHICLES, LOCATIONS, DRIVERS_BY_LOCATION, CHECKLIST_ITEMS, EQUIPMENT_ITEMS } from "@/lib/form-config"
 import {
@@ -118,12 +119,23 @@ export function VehicleForm() {
 
     setIsExporting(true)
     try {
-      const pdfBlob = await generatePDF(data)
-      const fileName = pdfFileName(data)
-      const file = new File([pdfBlob], fileName, { type: "application/pdf" })
-
-      const downloadPdf = () => {
-        const url = URL.createObjectURL(pdfBlob)
+      const excelBlob = await generateExcelInBrowser(data)
+      const fileName = excelFileName(data)
+      const file = new File([excelBlob], fileName, {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      })
+      const text = [
+        "BİLGİÇEVRE Günlük Araç Kullanım Formu",
+        `Tarih: ${data.tarih || "-"}`,
+        `Plaka: ${data.plaka || "-"}`,
+        `Şoför: ${data.sofor1 || "-"}`,
+        `Taslak No: ${data.taslakNo}`,
+        "Doldurulmuş Excel çizelgesi ektedir.",
+      ].join("\\n")
+      const encodedText = encodeURIComponent(text)
+      const whatsappTarget = CORPORATE_WHATSAPP ? `https://wa.me/${CORPORATE_WHATSAPP}` : "https://wa.me/"
+      const downloadExcel = () => {
+        const url = URL.createObjectURL(excelBlob)
         const a = document.createElement("a")
         a.href = url
         a.download = fileName
@@ -131,53 +143,37 @@ export function VehicleForm() {
         a.click()
         document.body.removeChild(a)
         URL.revokeObjectURL(url)
-        const text = [
-          "BİLGİÇEVRE Günlük Araç Kullanım Formu",
-          `Tarih: ${data.tarih || "-"}`,
-          `Plaka: ${data.plaka || "-"}`,
-          `Şoför: ${data.sofor1 || "-"}`,
-          `Taslak No: ${data.taslakNo}`,
-          "Doldurulmuş PDF çizelgesi indirildi; lütfen mesajınıza veya e-postanıza ekleyin.",
-        ].join("\\n")
-        const encodedText = encodeURIComponent(text)
-        const whatsappTarget = CORPORATE_WHATSAPP ? `https://wa.me/${CORPORATE_WHATSAPP}` : "https://wa.me/"
-        setShareFile(file)
-        setShareLinks({
-          whatsapp: `${whatsappTarget}?text=${encodedText}`,
-          email: `mailto:${CORPORATE_EMAIL}?subject=${encodeURIComponent("Günlük Araç Kullanım Formu")}&body=${encodedText}`,
-        })
-        setShareOpen(true)
-        setToast("PDF çizelgesi oluşturuldu. Paylaşım kanalını seçin.")
+        setToast("Doldurulmuş Excel dosyası indirildi. Paylaşım kanalını seçin.")
       }
-
-      // Dosya üretimi asenkron olduğu için bazı tarayıcılar navigator.share çağrısında
-      // kullanıcı iznini kaybedip "Permission denied" döndürebilir. Bu durumda
-      // işlemi başarısız göstermeden Excel dosyasını otomatik indiriyoruz.
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      setShareFile(file)
+      setShareLinks({
+        whatsapp: `${whatsappTarget}?text=${encodedText}`,
+        email: `mailto:${CORPORATE_EMAIL}?subject=${encodeURIComponent("Günlük Araç Kullanım Formu")}&body=${encodedText}`,
+      })
+      if (navigator.canShare?.({ files: [file] })) {
         try {
           await navigator.share({
             title: "Günlük Araç Kullanım Formu",
-            text: `${data.plaka || "Araç"} - ${data.tarih} tarihli PDF çizelgesi ekte yer almaktadır.`,
+            text: `${data.plaka || "Araç"} - ${data.tarih} tarihli Excel çizelgesi ekte yer almaktadır.`,
             files: [file],
           })
-          setToast("PDF çizelgesi başarıyla paylaşıldı.")
+          setToast("Excel çizelgesi başarıyla paylaşıldı.")
         } catch (shareError) {
-          const message = shareError instanceof Error ? shareError.message.toLowerCase() : ""
           if (shareError instanceof DOMException && shareError.name === "AbortError") {
             setToast("Paylaşım iptal edildi.")
-          } else if (message.includes("permission") || message.includes("not allowed") || message.includes("user activation")) {
-            downloadPdf()
           } else {
-            throw shareError
+            downloadExcel()
+            setShareOpen(true)
           }
         }
       } else {
-        downloadPdf()
+        downloadExcel()
+        setShareOpen(true)
       }
     } catch (err) {
-      console.error("Paylaşım hatası:", err)
+      console.error("Excel paylaşım hatası:", err)
       if ((err as Error).name !== "AbortError") {
-        setToast(`Paylaşım sırasında bir hata oluştu: ${(err as Error).message || "Bilinmeyen hata"}`)
+        setToast(`Excel oluşturulurken hata oluştu: ${(err as Error).message || "Bilinmeyen hata"}`)
       }
     } finally {
       setIsExporting(false)
@@ -477,7 +473,7 @@ export function VehicleForm() {
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold">Paylaşım seçenekleri</h2>
-                <p className="text-sm text-muted-foreground">Doldurulmuş PDF çizelgesi hazır. Kanal seçin.</p>
+                <p className="text-sm text-muted-foreground">Doldurulmuş Excel çizelgesi hazır. Kanal seçin.</p>
               </div>
               <button type="button" onClick={() => setShareOpen(false)} className="rounded-full p-2 hover:bg-muted" aria-label="Kapat">
                 <X className="size-5" />
@@ -489,7 +485,7 @@ export function VehicleForm() {
                 onClick={async () => {
                   if (shareFile && navigator.canShare?.({ files: [shareFile] })) {
                     try {
-                      await navigator.share({ files: [shareFile], title: "Günlük Araç Kullanım Formu", text: "Doldurulmuş PDF çizelgesi ektedir." })
+                      await navigator.share({ files: [shareFile], title: "Günlük Araç Kullanım Formu", text: "Doldurulmuş Excel çizelgesi ektedir." })
                       setShareOpen(false)
                       return
                     } catch (error) {
@@ -500,14 +496,14 @@ export function VehicleForm() {
                 }}
                 className="flex items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 py-3 font-semibold text-white"
               >
-                <MessageCircle className="size-5" /> WhatsApp ile PDF gönder
+                <MessageCircle className="size-5" /> WhatsApp ile Excel gönder
               </button>
               <button
                 type="button"
                 onClick={async () => {
                   if (shareFile && navigator.canShare?.({ files: [shareFile] })) {
                     try {
-                      await navigator.share({ files: [shareFile], title: "Günlük Araç Kullanım Formu", text: "Doldurulmuş PDF çizelgesi ektedir." })
+                      await navigator.share({ files: [shareFile], title: "Günlük Araç Kullanım Formu", text: "Doldurulmuş Excel çizelgesi ektedir." })
                       setShareOpen(false)
                       return
                     } catch (error) {
@@ -518,7 +514,7 @@ export function VehicleForm() {
                 }}
                 className="flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 font-semibold text-primary-foreground"
               >
-                <Mail className="size-5" /> E-posta ile PDF gönder
+                <Mail className="size-5" /> E-posta ile Excel gönder
               </button>
             </div>
           </div>
