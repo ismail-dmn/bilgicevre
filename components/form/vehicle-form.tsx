@@ -17,6 +17,7 @@ import { FormHeader } from "./form-header"
 import { RulesAccordion } from "./rules-accordion"
 // import { ShareModal } from "./share-modal"
 import { excelFileName } from "@/lib/excel-client"
+import { generateExcelInBrowser } from "@/lib/excel-browser"
 import { VEHICLES, LOCATIONS, DRIVERS_BY_LOCATION, CHECKLIST_ITEMS, EQUIPMENT_ITEMS } from "@/lib/form-config"
 import {
   createEmptyForm,
@@ -93,22 +94,7 @@ export function VehicleForm() {
   }
 
   async function fetchExcelBlob(formData: FormData): Promise<Blob> {
-    const response = await fetch("/api/export-excel", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(formData),
-    })
-    if (!response.ok) {
-      let message = "Excel dosyası oluşturulamadı."
-      try {
-        const payload = (await response.json()) as { error?: string }
-        if (payload.error) message = payload.error
-      } catch {
-        // JSON hata gövdesi yoksa varsayılan mesajı kullan.
-      }
-      throw new Error(message)
-    }
-    return response.blob()
+    return generateExcelInBrowser(formData)
   }
 
   async function handleShare() {
