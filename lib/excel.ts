@@ -102,34 +102,8 @@ export async function buildWorkbook(data: FormData): Promise<ExcelJS.Workbook> {
   const ws = wb.getWorksheet(TEMPLATE_SHEET)
   if (!ws) throw new Error(`Şablonda "${TEMPLATE_SHEET}" sayfası bulunamadı.`)
 
-  // Excel ekranındaki tüm alanın PDF sayfasına sığmasını sağla; hücre stilleri ve birleşimler korunur.
-  ws.printArea = "A1:Q186"
-  ws.pageSetup.orientation = "landscape"
-  ws.pageSetup.fitToWidth = 1
-  ws.pageSetup.fitToHeight = 3
-  ws.pageSetup.scale = undefined
-  if (ws.properties.pageSetUpPr) ws.properties.pageSetUpPr.fitToPage = true
-
-  // Başlığı (C1 hücresi) tarihe ve lokasyona göre dinamik güncelle: YIL-AYI GÜNLÜK ARAÇ KULLANIMI TAKİP ÇİZELGESİ
-  const tarihStr = data.tarih || new Date().toISOString().slice(0, 10)
-  const [yil, ayNum] = tarihStr.split("-")
-  const AY_ISIMLERI_TR: Record<string, string> = {
-    "01": "OCAK",
-    "02": "ŞUBAT",
-    "03": "MART",
-    "04": "NİSAN",
-    "05": "MAYIS",
-    "06": "HAZİRAN",
-    "07": "TEMMUZ",
-    "08": "AĞUSTOS",
-    "09": "EYLÜL",
-    "10": "EKİM",
-    "11": "KASIM",
-    "12": "ARALIK",
-  }
-  const ayIsmi = AY_ISIMLERI_TR[ayNum] || "AY"
-  const titleText = `${yil}-${ayIsmi} AYI GÜNLÜK ARAÇ KULLANIMI TAKİP ÇİZELGESİ`.toUpperCase()
-  ws.getCell("C1").value = titleText
+  // Şablonun özgün başlık, renk, yazı tipi, birleşik hücre ve sayfa ayarlarına dokunulmaz.
+  // Sadece form verilerinin bulunduğu tablo hücreleri değiştirilir.
 
   // Excel şablonunun birleşik hücrelerini, stillerini ve sayfa düzenini bozmadan doldur.
   const trips = [
