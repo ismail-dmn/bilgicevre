@@ -21,8 +21,9 @@ export async function POST(request: Request) {
     const xlsxPath = path.join(workDir, xlsxName)
     await writeFile(xlsxPath, xlsxBuffer)
 
-    // LibreOffice, Excel'in sayfa düzeni ve hücre biçimlerini koruyarak PDF üretir.
-    await execFileAsync("libreoffice", ["--headless", "--convert-to", "pdf", "--outdir", workDir, xlsxPath], { timeout: 120000 })
+    // UNO dönüştürücüsü, Excel'in renklerini, yazı tiplerini, birleşik hücrelerini ve sayfa stilini korur.
+    const converter = path.join(process.cwd(), "scripts", "lo_export.py")
+    await execFileAsync("python3", [converter, xlsxPath, workDir], { timeout: 120000 })
     const pdfPath = path.join(workDir, xlsxName.replace(/\.xlsx$/i, ".pdf"))
     const pdf = await readFile(pdfPath)
     const name = `Gunluk_Arac_Kullanim_Takip_Cizelgesi_${data.tarih || "Yeni"}_${(data.plaka || "Arac").replace(/[^a-z0-9]/gi, "_")}.pdf`
