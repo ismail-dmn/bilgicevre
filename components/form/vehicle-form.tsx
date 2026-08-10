@@ -333,121 +333,70 @@ export function VehicleForm() {
         </Field>
       </Section>
 
-      {/* 2. Güzergah ve KM */}
-      <Section title="GÜZERGAH VE KM BİLGİLERİ">
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="1. Gidiş KM" htmlFor="gidisKm1" required>
-            <NumberInput id="gidisKm1" value={data.gidisKm1} onChange={(e) => set("gidisKm1", onlyDigits(e.target.value))} />
-          </Field>
-          <Field label="1. Dönüş KM" htmlFor="donusKm1" required>
-            <NumberInput id="donusKm1" value={data.donusKm1} onChange={(e) => set("donusKm1", onlyDigits(e.target.value))} />
-          </Field>
-          <Field label="2. Gidiş KM" htmlFor="gidisKm2">
-            <NumberInput id="gidisKm2" value={data.gidisKm2} onChange={(e) => set("gidisKm2", onlyDigits(e.target.value))} />
-          </Field>
-          <Field label="2. Dönüş KM" htmlFor="donusKm2">
-            <NumberInput id="donusKm2" value={data.donusKm2} onChange={(e) => set("donusKm2", onlyDigits(e.target.value))} />
-          </Field>
-          <Field label="3. Gidiş KM" htmlFor="gidisKm3">
-            <NumberInput id="gidisKm3" value={data.gidisKm3} onChange={(e) => set("gidisKm3", onlyDigits(e.target.value))} />
-          </Field>
-          <Field label="3. Dönüş KM" htmlFor="donusKm3">
-            <NumberInput id="donusKm3" value={data.donusKm3} onChange={(e) => set("donusKm3", onlyDigits(e.target.value))} />
-          </Field>
-        </div>
+      {/* 2. Seferler */}
+      <Section title="SEFERLER">
         <div className="grid gap-3">
           {[1, 2, 3].map((trip) => {
+            const driverKey = `sofor${trip}` as "sofor1" | "sofor2" | "sofor3"
             const routeKey = `guzergah${trip}` as "guzergah1" | "guzergah2" | "guzergah3"
             const staffKey = `personeller${trip}` as "personeller1" | "personeller2" | "personeller3"
-            return (
-              <div key={trip} className="grid gap-3 rounded-xl border border-border/60 p-3">
-                <div className="text-sm font-semibold text-foreground">{trip}. Sefer</div>
-                <Field label="Araç Kullanımı / Güzergahı" htmlFor={routeKey}>
-                  <Textarea
-                    id={routeKey}
-                    value={data[routeKey]}
-                    onChange={(e) => set(routeKey, e.target.value)}
-                    placeholder="Örn: Kadıköy - Gebze Şantiye - Kadıköy"
-                  />
-                </Field>
-                <Field label="Araçtaki Görevli Personeller" htmlFor={staffKey} hint="Birden fazla kişi için virgül kullanabilirsiniz">
-                  <TextInput
-                    id={staffKey}
-                    value={data[staffKey]}
-                    onChange={(e) => set(staffKey, e.target.value)}
-                    placeholder="Örn: Ahmet Yılmaz, Ayşe Demir"
-                  />
-                </Field>
-              </div>
-            )
-          })}
-        </div>
-      </Section>
-
-      {/* 3. Saatler */}
-      <Section title="ARAÇ KULLANIM SAATLERİ">
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Çıkış Saati" htmlFor="cikisSaati" required>
-            <TextInput id="cikisSaati" type="time" value={data.cikisSaati} onChange={(e) => set("cikisSaati", e.target.value)} />
-          </Field>
-          <Field label="Dönüş Saati" htmlFor="donusSaati" required={data.durum === "Tamamlandı"}>
-            <TextInput id="donusSaati" type="time" value={data.donusSaati} onChange={(e) => set("donusSaati", e.target.value)} />
-          </Field>
-        </div>
-      </Section>
-
-      {/* 4. Yakıt */}
-      <Section title="YAKIT DURUMU">
-        <div className="grid gap-4">
-          {[1, 2, 3].map((trip) => {
-            const driverKey = `sofor${trip}` as "sofor1" | "sofor2" | "sofor3"
+            const startKmKey = `gidisKm${trip}` as "gidisKm1" | "gidisKm2" | "gidisKm3"
+            const endKmKey = `donusKm${trip}` as "donusKm1" | "donusKm2" | "donusKm3"
+            const startTimeKey = `cikisSaati${trip}` as "cikisSaati1" | "cikisSaati2" | "cikisSaati3"
+            const endTimeKey = `donusSaati${trip}` as "donusSaati1" | "donusSaati2" | "donusSaati3"
             const levelKey = `yakitSeviyesi${trip}` as "yakitSeviyesi1" | "yakitSeviyesi2" | "yakitSeviyesi3"
             const takenKey = `yakitAlindi${trip}` as "yakitAlindi1" | "yakitAlindi2" | "yakitAlindi3"
             const dateKey = `yakitTarihi${trip}` as "yakitTarihi1" | "yakitTarihi2" | "yakitTarihi3"
             const level = data[levelKey]
+            const optional = trip > 1
             return (
-              <div key={trip} className="rounded-xl border border-border/60 p-3">
-                <div className="mb-3 text-sm font-semibold">{trip}. Şoför: {data[driverKey] || "Seçilmedi"}</div>
-                <Field label="Depo doluluk seviyesi">
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="group" aria-label={`${trip}. şoför yakıt deposu doluluk seviyesi`}>
-                    {[1, 2, 3, 4].map((nextLevel) => {
-                      const selected = level >= nextLevel
-                      const label = nextLevel === 1 ? "¼" : nextLevel === 2 ? "½" : nextLevel === 3 ? "¾" : "Dolu"
-                      return (
-                        <button
-                          key={nextLevel}
-                          type="button"
-                          aria-label={`${trip}. şoför depo ${label}`}
-                          aria-pressed={selected}
-                          onClick={() => {
-                            set(takenKey, "Evet")
-                            set(levelKey, nextLevel as 0 | 1 | 2 | 3 | 4)
-                          }}
-                          className={`rounded-xl border px-3 py-3 text-center transition ${selected ? "border-foreground bg-foreground text-background" : "border-border bg-background text-foreground hover:bg-muted"}`}
-                        >
-                          <span className="block text-xl leading-none">{selected ? "■" : "□"}</span>
-                          <span className="mt-1 block text-xs font-medium">{label}</span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      set(takenKey, "Hayır")
-                      set(levelKey, 0)
-                    }}
-                    className={`mt-2 w-full rounded-xl border px-3 py-2 text-sm font-medium ${level === 0 ? "border-foreground bg-foreground text-background" : "border-border hover:bg-muted"}`}
-                  >
-                    Yakıt alınmadı
-                  </button>
-                </Field>
-                {level > 0 && (
-                  <Field label="Yakıt Alınan Tarih" htmlFor={dateKey} required>
-                    <TextInput id={dateKey} type="date" value={data[dateKey]} onChange={(e) => set(dateKey, e.target.value)} />
+              <details key={trip} open={trip === 1} className="overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm">
+                <summary className="cursor-pointer list-none px-4 py-3 font-semibold marker:hidden">
+                  <span>{trip}. Sefer</span>
+                  <span className="ml-2 text-sm font-normal text-muted-foreground">{data[driverKey] || "Şoför seçilmedi"}</span>
+                </summary>
+                <div className="grid gap-3 border-t border-border/60 p-4">
+                  <Field label={`Şoför ${trip}`} htmlFor={driverKey} required={!optional}>
+                    <SelectInput id={driverKey} placeholder={data.lokasyon ? "Şoför seçiniz" : "Önce lokasyon seçiniz"} value={data[driverKey]} disabled={!data.lokasyon} onChange={(e) => set(driverKey, e.target.value)}>
+                      {currentDrivers.map((driver) => <option key={driver} value={driver}>{driver}</option>)}
+                    </SelectInput>
                   </Field>
-                )}
-              </div>
+                  <Field label="Araç Kullanımı / Güzergahı" htmlFor={routeKey}>
+                    <TextInput id={routeKey} value={data[routeKey]} onChange={(e) => set(routeKey, e.target.value)} placeholder="Örn: Tekirdağ - Şantiye" />
+                  </Field>
+                  <Field label="Görevli Personeller" htmlFor={staffKey} hint="Birden fazla kişi için virgül kullanabilirsiniz">
+                    <TextInput id={staffKey} value={data[staffKey]} onChange={(e) => set(staffKey, e.target.value)} placeholder="Ad Soyad, Ad Soyad" />
+                  </Field>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field label="Gidiş KM" htmlFor={startKmKey} required={!optional}>
+                      <NumberInput id={startKmKey} value={data[startKmKey]} onChange={(e) => set(startKmKey, onlyDigits(e.target.value))} />
+                    </Field>
+                    <Field label="Dönüş KM" htmlFor={endKmKey} required={data.durum === "Tamamlandı" && !optional}>
+                      <NumberInput id={endKmKey} value={data[endKmKey]} onChange={(e) => set(endKmKey, onlyDigits(e.target.value))} />
+                    </Field>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field label="Çıkış saati" htmlFor={startTimeKey} required={!optional}>
+                      <TextInput id={startTimeKey} type="time" value={data[startTimeKey]} onChange={(e) => set(startTimeKey, e.target.value)} />
+                    </Field>
+                    <Field label="Dönüş saati" htmlFor={endTimeKey} required={data.durum === "Tamamlandı" && !optional}>
+                      <TextInput id={endTimeKey} type="time" value={data[endTimeKey]} onChange={(e) => set(endTimeKey, e.target.value)} />
+                    </Field>
+                  </div>
+                  <div>
+                    <div className="mb-2 text-sm font-medium">Yakıt seviyesi</div>
+                    <div className="grid grid-cols-4 gap-2" role="group" aria-label={`${trip}. sefer yakıt seviyesi`}>
+                      {[1, 2, 3, 4].map((nextLevel) => {
+                        const selected = level >= nextLevel
+                        const label = nextLevel === 1 ? "¼" : nextLevel === 2 ? "½" : nextLevel === 3 ? "¾" : "Dolu"
+                        return <button key={nextLevel} type="button" aria-label={`${trip}. sefer depo ${label}`} aria-pressed={selected} onClick={() => { set(takenKey, "Evet"); set(levelKey, nextLevel as 0 | 1 | 2 | 3 | 4) }} className={`min-h-14 rounded-xl border text-center transition ${selected ? "border-foreground bg-foreground text-background" : "border-border bg-background hover:bg-muted"}`}><span className="block text-lg">{selected ? "■" : "□"}</span><span className="text-xs">{label}</span></button>
+                      })}
+                    </div>
+                    <button type="button" onClick={() => { set(takenKey, "Hayır"); set(levelKey, 0) }} className={`mt-2 w-full rounded-xl border px-3 py-2 text-sm ${level === 0 ? "border-foreground bg-foreground text-background" : "border-border hover:bg-muted"}`}>Yakıt alınmadı</button>
+                  </div>
+                  {level > 0 && <Field label="Yakıt alınan tarih" htmlFor={dateKey}><TextInput id={dateKey} type="date" value={data[dateKey]} onChange={(e) => set(dateKey, e.target.value)} /></Field>}
+                </div>
+              </details>
             )
           })}
         </div>

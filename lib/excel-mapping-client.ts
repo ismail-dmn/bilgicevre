@@ -75,15 +75,16 @@ export function mapFormDataToExcelClient(worksheet: any, formData: FormData): vo
       : ""
   })
   const fuelDates = [formData.yakitTarihi1, formData.yakitTarihi2, formData.yakitTarihi3]
+  const tripStarts = [formData.cikisSaati1 || formData.cikisSaati, formData.cikisSaati2, formData.cikisSaati3]
+  const tripEnds = [formData.donusSaati1 || formData.donusSaati, formData.donusSaati2, formData.donusSaati3]
   const trips = [
-    { gidis: formData.gidisKm1, donus: formData.donusKm1, guzergah: formData.guzergah1 || formData.guzergah, personeller: formData.personeller1 || defaultPersoneller },
-    { gidis: formData.gidisKm2, donus: formData.donusKm2, guzergah: formData.guzergah2, personeller: formData.personeller2 || defaultPersoneller },
-    { gidis: formData.gidisKm3, donus: formData.donusKm3, guzergah: formData.guzergah3, personeller: formData.personeller3 || defaultPersoneller },
-  ].filter((trip) => trip.gidis || trip.donus || trip.guzergah || trip.personeller)
+    { gidis: formData.gidisKm1, donus: formData.donusKm1, guzergah: formData.guzergah1 || formData.guzergah, personeller: formData.personeller1 || defaultPersoneller, cikis: tripStarts[0], donusSaati: tripEnds[0] },
+    { gidis: formData.gidisKm2, donus: formData.donusKm2, guzergah: formData.guzergah2, personeller: formData.personeller2 || "", cikis: tripStarts[1], donusSaati: tripEnds[1] },
+    { gidis: formData.gidisKm3, donus: formData.donusKm3, guzergah: formData.guzergah3, personeller: formData.personeller3 || "", cikis: tripStarts[2], donusSaati: tripEnds[2] },
+  ].filter((trip) => trip.gidis || trip.donus || trip.guzergah || trip.personeller || trip.cikis || trip.donusSaati)
   if (!trips.length) trips.push({ gidis: "", donus: "", guzergah: "", personeller: "" })
 
-  const saat = `${formData.cikisSaati || "-"} - ${formData.donusSaati || "-"}`
-  trips.forEach(({ gidis, donus, guzergah, personeller }, index) => {
+  trips.forEach(({ gidis, donus, guzergah, personeller, cikis, donusSaati }, index) => {
     const row = DATA_ROW + index
     worksheet.getCell(cellAddress(CELL_COLUMNS.surucu, row)).value = driversByTrip[index] || ""
     worksheet.getCell(cellAddress(CELL_COLUMNS.plaka, row)).value = formData.plaka || ""
@@ -97,6 +98,6 @@ export function mapFormDataToExcelClient(worksheet: any, formData: FormData): vo
     worksheet.getCell(cellAddress(CELL_COLUMNS.personel, row)).value = personeller || ""
     worksheet.getCell(cellAddress(CELL_COLUMNS.kmBaslangic, row)).value = gidis ? Number(gidis) || gidis : ""
     worksheet.getCell(cellAddress(CELL_COLUMNS.kmBitis, row)).value = donus ? Number(donus) || donus : ""
-    worksheet.getCell(cellAddress(CELL_COLUMNS.saat, row)).value = saat
+    worksheet.getCell(cellAddress(CELL_COLUMNS.saat, row)).value = `${cikis || "-"} - ${donusSaati || "-"}`
   })
 }

@@ -39,6 +39,12 @@ export interface FormData {
   // Saatler
   cikisSaati: string
   donusSaati: string
+  cikisSaati1: string
+  donusSaati1: string
+  cikisSaati2: string
+  donusSaati2: string
+  cikisSaati3: string
+  donusSaati3: string
 
   // Yakıt
   yakitAlindi: "Evet" | "Hayır"
@@ -96,6 +102,12 @@ export function createEmptyForm(taslakNo: string): FormData {
     personeller3: "",
     cikisSaati: "",
     donusSaati: "",
+    cikisSaati1: "",
+    donusSaati1: "",
+    cikisSaati2: "",
+    donusSaati2: "",
+    cikisSaati3: "",
+    donusSaati3: "",
     yakitAlindi: "Hayır",
     yakitSeviyesi: 0,
     yakitTarihi: "",
