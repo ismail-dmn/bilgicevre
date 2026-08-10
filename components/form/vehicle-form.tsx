@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { AlertCircle, CheckCircle2, Send, RotateCcw } from "lucide-react"
+import { AlertCircle, CheckCircle2, Send, RotateCcw, MessageCircle, Mail, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Section,
@@ -18,6 +18,7 @@ import { RulesAccordion } from "./rules-accordion"
 // import { ShareModal } from "./share-modal"
 import { excelFileName } from "@/lib/excel-client"
 import { generateExcelInBrowser } from "@/lib/excel-browser"
+import { CORPORATE_EMAIL, CORPORATE_WHATSAPP } from "@/lib/form-config"
 import { VEHICLES, LOCATIONS, DRIVERS_BY_LOCATION, CHECKLIST_ITEMS, EQUIPMENT_ITEMS } from "@/lib/form-config"
 import {
   createEmptyForm,
@@ -35,6 +36,7 @@ export function VehicleForm() {
   const [errors, setErrors] = useState<string[]>([])
   const [toast, setToast] = useState<string | null>(null)
   const [shareOpen, setShareOpen] = useState(false)
+  const [shareLinks, setShareLinks] = useState<{ whatsapp: string; email: string } | null>(null)
   const [isExporting, setIsExporting] = useState(false)
   const loaded = useRef(false)
 
@@ -121,7 +123,22 @@ export function VehicleForm() {
         a.click()
         document.body.removeChild(a)
         URL.revokeObjectURL(url)
-        setToast("Excel dosyası oluşturuldu ve indirildi.")
+        const text = [
+          "BİLGİÇEVRE Günlük Araç Kullanım Formu",
+          `Tarih: ${data.tarih || "-"}`,
+          `Plaka: ${data.plaka || "-"}`,
+          `Şoför: ${data.sofor1 || "-"}`,
+          `Taslak No: ${data.taslakNo}`,
+          "Doldurulmuş Excel dosyası indirildi; lütfen mesajınıza veya e-postanıza ekleyin.",
+        ].join("\\n")
+        const encodedText = encodeURIComponent(text)
+        const whatsappTarget = CORPORATE_WHATSAPP ? `https://wa.me/${CORPORATE_WHATSAPP}` : "https://wa.me/"
+        setShareLinks({
+          whatsapp: `${whatsappTarget}?text=${encodedText}`,
+          email: `mailto:${CORPORATE_EMAIL}?subject=${encodeURIComponent("Günlük Araç Kullanım Formu")}&body=${encodedText}`,
+        })
+        setShareOpen(true)
+        setToast("Excel dosyası oluşturuldu. Paylaşım kanalını seçin.")
       }
 
       // Dosya üretimi asenkron olduğu için bazı tarayıcılar navigator.share çağrısında
@@ -427,7 +444,29 @@ export function VehicleForm() {
         </div>
       )}
 
-      {/* <ShareModal open={shareOpen} data={data} onClose={() => setShareOpen(false)} /> */}
+      {shareOpen && shareLinks && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4" role="dialog" aria-modal="true" aria-label="Paylaşım seçenekleri">
+          <div className="w-full max-w-sm rounded-2xl bg-background p-5 shadow-2xl">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold">Paylaşım seçenekleri</h2>
+                <p className="text-sm text-muted-foreground">Excel dosyası indirildi. Kanal seçin.</p>
+              </div>
+              <button type="button" onClick={() => setShareOpen(false)} className="rounded-full p-2 hover:bg-muted" aria-label="Kapat">
+                <X className="size-5" />
+              </button>
+            </div>
+            <div className="grid gap-3">
+              <a href={shareLinks.whatsapp} target="_blank" rel="noreferrer" onClick={() => setShareOpen(false)} className="flex items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 py-3 font-semibold text-white">
+                <MessageCircle className="size-5" /> WhatsApp
+              </a>
+              <a href={shareLinks.email} onClick={() => setShareOpen(false)} className="flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 font-semibold text-primary-foreground">
+                <Mail className="size-5" /> E-posta
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
