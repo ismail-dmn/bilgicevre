@@ -16,13 +16,13 @@ export function FormHeader({
   return (
     <header className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 flex-1 items-center">
           <Image
             src="/bilgicevre-logo.png"
             alt="BİLGİÇEVRE logosu"
-            width={240}
-            height={86}
-            className="h-16 w-auto object-contain sm:h-20"
+            width={420}
+            height={120}
+            className="h-auto w-full max-w-[420px] object-contain object-left"
             priority
           />
         </div>
