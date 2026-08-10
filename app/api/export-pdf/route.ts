@@ -21,16 +21,16 @@ export async function POST(request: Request) {
     const xlsxPath = path.join(workDir, xlsxName)
     await writeFile(xlsxPath, xlsxBuffer)
 
-    // UNO dönüştürücüsü, Excel'in renklerini, yazı tiplerini, birleşik hücrelerini ve sayfa stilini korur.
-    const converter = path.join(process.cwd(), "scripts", "lo_export.py")
-    await execFileAsync("python3", [converter, xlsxPath, workDir], { timeout: 120000 })
+    // Python gerektirmeden, sunucudaki LibreOffice ile Excel görünümünü PDF'ye aktar.
+    await execFileAsync("libreoffice", ["--headless", "--convert-to", "pdf", "--outdir", workDir, xlsxPath], { timeout: 120000 })
     const pdfPath = path.join(workDir, xlsxName.replace(/\.xlsx$/i, ".pdf"))
     const pdf = await readFile(pdfPath)
     const name = `Gunluk_Arac_Kullanim_Takip_Cizelgesi_${data.tarih || "Yeni"}_${(data.plaka || "Arac").replace(/[^a-z0-9]/gi, "_")}.pdf`
     return new NextResponse(pdf, { status: 200, headers: { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="${name}"`, "Cache-Control": "no-store" } })
   } catch (error) {
     console.error("Birebir Excel-PDF dönüşüm hatası:", error)
-    return NextResponse.json({ error: "Excel şablonu PDF'ye dönüştürülemedi. Sunucuda LibreOffice kurulumu gereklidir." }, { status: 500 })
+    const detail = error instanceof Error ? error.message : "Bilinmeyen sunucu hatası"
+    return NextResponse.json({ error: `Excel şablonu PDF'ye dönüştürülemedi: ${detail}` }, { status: 500 })
   } finally {
     if (workDir) await rm(workDir, { recursive: true, force: true }).catch(() => undefined)
   }
