@@ -66,6 +66,8 @@ export function mapFormDataToExcelClient(worksheet: any, formData: FormData): vo
   } : { durum: "Uygun" })
 
   const defaultPersoneller = [formData.sofor2, formData.sofor3].filter(Boolean).join(", ")
+  const driversByTrip = [formData.sofor1, formData.sofor2, formData.sofor3]
+  const fuelValue = formData.yakitAlindi === "Evet" ? "□□│□□│□□│□□\n½" : ""
   const trips = [
     { gidis: formData.gidisKm1, donus: formData.donusKm1, guzergah: formData.guzergah1 || formData.guzergah, personeller: formData.personeller1 || defaultPersoneller },
     { gidis: formData.gidisKm2, donus: formData.donusKm2, guzergah: formData.guzergah2, personeller: formData.personeller2 || defaultPersoneller },
@@ -76,13 +78,13 @@ export function mapFormDataToExcelClient(worksheet: any, formData: FormData): vo
   const saat = `${formData.cikisSaati || "-"} - ${formData.donusSaati || "-"}`
   trips.forEach(({ gidis, donus, guzergah, personeller }, index) => {
     const row = DATA_ROW + index
-    worksheet.getCell(cellAddress(CELL_COLUMNS.surucu, row)).value = formData.sofor1 || ""
+    worksheet.getCell(cellAddress(CELL_COLUMNS.surucu, row)).value = driversByTrip[index] || ""
     worksheet.getCell(cellAddress(CELL_COLUMNS.plaka, row)).value = formData.plaka || ""
     worksheet.getCell(cellAddress(CELL_COLUMNS.tarih, row)).value = fmtTarih(formData.tarih) || ""
     worksheet.getCell(cellAddress(CELL_COLUMNS.kontrolCamKaporta, row)).value = cam
     worksheet.getCell(cellAddress(CELL_COLUMNS.kontrolLastik, row)).value = lastik
     worksheet.getCell(cellAddress(CELL_COLUMNS.kontrolFarKorna, row)).value = farKorna
-    worksheet.getCell(cellAddress(CELL_COLUMNS.yakitDurumu, row)).value = formData.yakitAlindi || ""
+    worksheet.getCell(cellAddress(CELL_COLUMNS.yakitDurumu, row)).value = fuelValue
     worksheet.getCell(cellAddress(CELL_COLUMNS.yakit, row)).value = formData.yakitAlindi === "Evet" ? fmtTarih(formData.yakitTarihi) : "-"
     worksheet.getCell(cellAddress(CELL_COLUMNS.guzergah, row)).value = `${guzergah || ""}${trips.length > 1 ? `\n(${index + 1}. Sefer)` : ""}`
     worksheet.getCell(cellAddress(CELL_COLUMNS.personel, row)).value = personeller || ""

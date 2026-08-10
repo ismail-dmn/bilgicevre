@@ -403,7 +403,7 @@ export function VehicleForm() {
             value={data.yakitAlindi}
             onChange={(v) => set("yakitAlindi", v)}
             options={[
-              { value: "Evet", label: "Evet" },
+              { value: "Evet", label: "□□│□□│□□│□□ ½" },
               { value: "Hayır", label: "Hayır" },
             ]}
           />
