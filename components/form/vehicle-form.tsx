@@ -1,113 +1,537 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { AlertCircle, CheckCircle2, Download, Save } from "lucide-react"
+import { AlertCircle, CheckCircle2, Send, RotateCcw, MessageCircle, Mail, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Section, Field, NumberInput, SelectInput, Textarea, TextInput, SegmentToggle, CheckRow } from "./fields"
+import {
+  Section,
+  Field,
+  NumberInput,
+  SelectInput,
+  Textarea,
+  TextInput,
+  SegmentToggle,
+  CheckRow,
+} from "./fields"
 import { FormHeader } from "./form-header"
 import { RulesAccordion } from "./rules-accordion"
+// import { ShareModal } from "./share-modal"
+import { generateExcelInBrowser } from "@/lib/excel-browser"
+import { excelFileName } from "@/lib/excel-client"
+import { CORPORATE_EMAIL, CORPORATE_WHATSAPP } from "@/lib/form-config"
 import { VEHICLES, LOCATIONS, DRIVERS_BY_LOCATION, CHECKLIST_ITEMS, EQUIPMENT_ITEMS } from "@/lib/form-config"
-import { createEmptyForm, generateTaslakNo, type FormData, type KontrolDurum } from "@/lib/form-types"
+import {
+  createEmptyForm,
+  generateTaslakNo,
+  type FormData,
+  type FormDurum,
+  type KontrolDurum,
+} from "@/lib/form-types"
 import { validateForm } from "@/lib/form-validation"
-import { getAvailableMonths, getMonthlyRecords, saveDailyRecord } from "@/lib/monthly-records"
+import { doc, setDoc } from "firebase/firestore"
+import { db } from "@/lib/firebase"
+import type { YetkiliKullanici } from "@/lib/auth-types"
 
-const DRAFT_KEY = "bilgicevre_daily_draft_v2"
-const DEVICE_ID_KEY = "bilgicevre_device_id_v2"
-const istanbulDate = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Istanbul", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date())
-const monthLabel = (m: string) => new Intl.DateTimeFormat("tr-TR", { month: "long", year: "numeric" }).format(new Date(`${m}-01T12:00:00+03:00`))
+const STORAGE_KEY_BASE = "bilgicevre_arac_form_draft"
+const DEVICE_ID_KEY = `${STORAGE_KEY_BASE}_device_id`
 
-function deviceId() {
-  let id = localStorage.getItem(DEVICE_ID_KEY)
-  if (!id) { id = crypto.randomUUID(); localStorage.setItem(DEVICE_ID_KEY, id) }
-  return id
+function getDraftStorageKey(): string {
+  if (typeof window === "undefined") return STORAGE_KEY_BASE
+  let deviceId = window.localStorage.getItem(DEVICE_ID_KEY)
+  if (!deviceId) {
+    deviceId = typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+    window.localStorage.setItem(DEVICE_ID_KEY, deviceId)
+  }
+  return `${STORAGE_KEY_BASE}_${deviceId}`
 }
 
-export function VehicleForm() {
+export function VehicleForm({ currentUser }: { currentUser: YetkiliKullanici }) {
   const [data, setData] = useState<FormData | null>(null)
   const [errors, setErrors] = useState<string[]>([])
   const [toast, setToast] = useState<string | null>(null)
-  const [months, setMonths] = useState<string[]>([])
-  const [archiveOpen, setArchiveOpen] = useState(false)
-  const [busy, setBusy] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
+  const [shareLinks, setShareLinks] = useState<{ whatsapp: string; email: string } | null>(null)
+  const [shareFile, setShareFile] = useState<File | null>(null)
+  const [isExporting, setIsExporting] = useState(false)
   const loaded = useRef(false)
 
+  // Aynı tarayıcı ve cihazdaki taslağı geri yükle veya yeni taslak oluştur.
   useEffect(() => {
     if (loaded.current) return
     loaded.current = true
-    const today = istanbulDate()
     try {
-      const saved = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null") as FormData | null
-      if (saved?.tarih === today) setData(saved)
-      else setData({ ...createEmptyForm(generateTaslakNo()), tarih: today })
-    } catch { setData({ ...createEmptyForm(generateTaslakNo()), tarih: today }) }
-    getAvailableMonths().then(setMonths).catch(() => setMonths([]))
+      const raw = window.localStorage.getItem(getDraftStorageKey())
+      if (raw) {
+        setData(JSON.parse(raw) as FormData)
+        return
+      }
+    } catch {
+      // yoksay
+    }
+    setData(createEmptyForm(generateTaslakNo()))
   }, [])
 
+  // Form değiştikçe taslağı aynı tarayıcıda kalıcı olarak güncelle.
   useEffect(() => {
     if (!data) return
-    localStorage.setItem(DRAFT_KEY, JSON.stringify(data))
-    const timer = window.setInterval(() => {
-      const today = istanbulDate()
-      setData((current) => {
-        if (!current || current.tarih === today) return current
-        const archived = { ...current, deviceId: deviceId(), userAgent: navigator.userAgent, kaydedildiAt: new Date().toISOString(), ay: current.tarih.slice(0, 7) }
-        void saveDailyRecord(archived).catch(() => undefined)
-        return { ...createEmptyForm(generateTaslakNo()), tarih: today }
-      })
-    }, 30000)
-    return () => window.clearInterval(timer)
+    try {
+      window.localStorage.setItem(getDraftStorageKey(), JSON.stringify(data))
+    } catch {
+      // yoksay
+    }
   }, [data])
 
-  useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 3500); return () => clearTimeout(t) }, [toast])
+  // Toast otomatik kapanış
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => setToast(null), 4000)
+    return () => clearTimeout(t)
+  }, [toast])
 
-  const set = useMemo(() => <K extends keyof FormData>(key: K, value: FormData[K]) => setData((p) => p ? { ...p, [key]: value } : p), [])
-  const drivers = useMemo(() => data?.lokasyon ? DRIVERS_BY_LOCATION[data.lokasyon as keyof typeof DRIVERS_BY_LOCATION] || [] : [], [data?.lokasyon])
-  const locked = Boolean(data && data.tarih < istanbulDate())
-  if (!data) return <div className="p-10 text-center text-muted-foreground">Form yükleniyor...</div>
+  const set = useMemo(
+    () => <K extends keyof FormData>(key: K, value: FormData[K]) => {
+      setData((prev) => (prev ? { ...prev, [key]: value } : prev))
+    },
+    [],
+  )
 
-  async function save() {
-    const completed = { ...data, durum: "Tamamlandı" as const }
-    const errs = validateForm(completed)
-    if (!completed.imzaAdSoyad.trim()) errs.push("İmza karşılığı ad soyad zorunludur.")
-    if (locked) errs.push("Günü geçmiş kayıtlarda değişiklik yapılamaz.")
+  const currentDrivers = useMemo(() => {
+    if (!data?.lokasyon) return []
+    return DRIVERS_BY_LOCATION[data.lokasyon as keyof typeof DRIVERS_BY_LOCATION] || []
+  }, [data?.lokasyon])
+
+  if (!data) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center text-muted-foreground">Form yükleniyor...</div>
+    )
+  }
+
+  function onlyDigits(v: string) {
+    return v.replace(/[^\d]/g, "")
+  }
+
+  async function handleShare() {
+    if (!data) return
+    const errs = validateForm(data)
     setErrors(errs)
-    if (errs.length) return window.scrollTo({ top: 0, behavior: "smooth" })
-    setBusy(true)
+    if (errs.length > 0) {
+      window.scrollTo({ top: 0, behavior: "smooth" })
+      return
+    }
+
+    setIsExporting(true)
     try {
-      const now = new Date().toISOString()
-      await saveDailyRecord({ ...completed, deviceId: deviceId(), userAgent: navigator.userAgent, kaydedildiAt: now, ay: completed.tarih.slice(0, 7) })
+      const excelBlob = await generateExcelInBrowser(data)
+      const fileName = excelFileName(data)
+      const file = new File([excelBlob], fileName, {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      })
+      const text = [
+        "BİLGİÇEVRE Günlük Araç Kullanım Formu",
+        `Tarih: ${data.tarih || "-"}`,
+        `Plaka: ${data.plaka || "-"}`,
+        `Şoför: ${data.sofor1 || "-"}`,
+        `Taslak No: ${data.taslakNo}`,
+        "Doldurulmuş Excel çizelgesi ektedir.",
+      ].join("\\n")
+      const encodedText = encodeURIComponent(text)
+      const whatsappTarget = CORPORATE_WHATSAPP ? `https://wa.me/${CORPORATE_WHATSAPP}` : "https://wa.me/"
+      const downloadExcel = () => {
+        const url = URL.createObjectURL(excelBlob)
+        const a = document.createElement("a")
+        a.href = url
+        a.download = fileName
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+        setToast("Doldurulmuş Excel dosyası indirildi. Paylaşım kanalını seçin.")
+      }
+      setShareFile(file)
+      setShareLinks({
+        whatsapp: `${whatsappTarget}?text=${encodedText}`,
+        email: `mailto:${CORPORATE_EMAIL}?subject=${encodeURIComponent("Günlük Araç Kullanım Formu")}&body=${encodedText}`,
+      })
+      if (navigator.canShare?.({ files: [file] })) {
+        try {
+          await navigator.share({
+            title: "Günlük Araç Kullanım Formu",
+            text: `${data.plaka || "Araç"} - ${data.tarih} tarihli Excel çizelgesi ekte yer almaktadır.`,
+            files: [file],
+          })
+          setToast("Excel çizelgesi başarıyla paylaşıldı.")
+        } catch (shareError) {
+          if (shareError instanceof DOMException && shareError.name === "AbortError") {
+            setToast("Paylaşım iptal edildi.")
+          } else {
+            downloadExcel()
+            setShareOpen(true)
+          }
+        }
+      } else {
+        downloadExcel()
+        setShareOpen(true)
+      }
+    } catch (err) {
+      console.error("Excel paylaşım hatası:", err)
+      if ((err as Error).name !== "AbortError") {
+        setToast(`Excel oluşturulurken hata oluştu: ${(err as Error).message || "Bilinmeyen hata"}`)
+      }
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  async function handleSubmit() {
+    const completed = { ...data!, durum: "Tamamlandı" as const }
+    const errs = validateForm(completed)
+    setErrors(errs)
+    if (errs.length > 0) {
+      window.scrollTo({ top: 0, behavior: "smooth" })
+      return
+    }
+    setIsExporting(true)
+    try {
+      const deviceId = window.localStorage.getItem(DEVICE_ID_KEY) || "bilinmiyor"
+      const kaydedildiAt = new Date().toISOString()
+      const record = {
+        ...completed,
+        kullaniciUid: currentUser.uid,
+        kullaniciAdSoyad: currentUser.adSoyad,
+        kullaniciEmail: currentUser.email,
+        girisSaglayici: "google.com",
+        kullaniciRol: currentUser.rol,
+        deviceId,
+        userAgent: navigator.userAgent,
+        kaydedildiAt,
+        ay: completed.tarih.slice(0, 7),
+      }
+      await setDoc(doc(db, "arac-kullanim-kayitlari", `${completed.tarih}_${deviceId}`), record)
+      window.localStorage.setItem(getDraftStorageKey(), JSON.stringify(completed))
       setData(completed)
-      setMonths(await getAvailableMonths())
-      setToast("Günlük kayıt kaydedildi.")
-    } catch { setToast("Kayıt kaydedilemedi. Firebase ayarlarını kontrol edin.") } finally { setBusy(false) }
+      setToast("Kayıt başarıyla kaydedildi.")
+    } catch (err) {
+      console.error(err)
+      setToast("Kayıt kaydedilemedi. Firestore yetkilerini kontrol edin.")
+    } finally {
+      setIsExporting(false)
+    }
   }
 
-  async function downloadMonth(month: string) {
-    setBusy(true)
-    try {
-      const records = await getMonthlyRecords(month)
-      const res = await fetch("/api/export-excel", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ month, records }) })
-      if (!res.ok) throw new Error()
-      const a = document.createElement("a"); a.href = URL.createObjectURL(await res.blob()); a.download = `Arac_Kullanim_Aylik_${month}.xlsx`; a.click(); URL.revokeObjectURL(a.href)
-    } catch { setToast("Aylık Excel indirilemedi.") } finally { setBusy(false) }
+  function handleReset() {
+    const fresh = createEmptyForm(generateTaslakNo())
+    setData(fresh)
+    setErrors([])
+    setToast("Yeni boş form oluşturuldu.")
+    window.scrollTo({ top: 0, behavior: "smooth" })
   }
 
-  const digits = (v: string) => v.replace(/[^\d]/g, "")
-  return <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 pb-28">
-    <FormHeader onDownload={() => setArchiveOpen((v) => !v)} />
-    {archiveOpen && <section className="rounded-2xl border bg-card p-4 shadow-sm"><h2 className="mb-3 font-bold">Aylık kayıtlar</h2>{months.length ? <div className="grid gap-2 sm:grid-cols-2">{months.map((m) => <Button key={m} type="button" variant="outline" disabled={busy} onClick={() => downloadMonth(m)} className="justify-between capitalize">{monthLabel(m)} <Download className="size-4" /></Button>)}</div> : <p className="text-sm text-muted-foreground">Henüz kayıt bulunmuyor.</p>}</section>}
-    {locked && <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">Bu kayıt geçmiş güne aittir ve düzenlemeye kapalıdır.</div>}
-    {errors.length > 0 && <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-4"><div className="mb-2 flex items-center gap-2 font-semibold text-destructive"><AlertCircle className="size-5" /> Eksik alanlar</div><ul className="list-disc pl-5 text-sm">{errors.map((e) => <li key={e}>{e}</li>)}</ul></div>}
-    <fieldset disabled={locked || busy} className="contents">
-      <Section title="GÜNLÜK KAYIT"><div className="grid grid-cols-1 gap-4 sm:grid-cols-2"><Field label="Lokasyon" htmlFor="lokasyon"><SelectInput id="lokasyon" value={data.lokasyon} onChange={(e) => { set("lokasyon", e.target.value); set("sofor1", "") }}><option value="">Seçiniz</option>{LOCATIONS.map((x) => <option key={x} value={x}>{x}</option>)}</SelectInput></Field><Field label="Tarih" htmlFor="tarih"><TextInput id="tarih" type="date" value={data.tarih} max={istanbulDate()} onChange={(e) => set("tarih", e.target.value)} /></Field><Field label="Araç / Plaka" htmlFor="plaka"><SelectInput id="plaka" value={data.plaka} onChange={(e) => set("plaka", e.target.value)}><option value="">Seçiniz</option>{VEHICLES.map((x) => <option key={x} value={x}>{x}</option>)}</SelectInput></Field><Field label="Şoför" htmlFor="sofor1"><SelectInput id="sofor1" value={data.sofor1} onChange={(e) => set("sofor1", e.target.value)}><option value="">Seçiniz</option>{drivers.map((x) => <option key={x} value={x}>{x}</option>)}</SelectInput></Field></div></Section>
-      <Section title="ARAÇ KULLANIMI"><div className="grid grid-cols-2 gap-4"><Field label="Çıkış saati" htmlFor="cikis"><TextInput id="cikis" type="time" value={data.cikisSaati1} onChange={(e) => set("cikisSaati1", e.target.value)} /></Field><Field label="Dönüş saati" htmlFor="donus"><TextInput id="donus" type="time" value={data.donusSaati1} onChange={(e) => set("donusSaati1", e.target.value)} /></Field><Field label="Başlangıç KM" htmlFor="gkm"><NumberInput id="gkm" value={data.gidisKm1} onChange={(e) => set("gidisKm1", digits(e.target.value))} /></Field><Field label="Bitiş KM" htmlFor="dkm"><NumberInput id="dkm" value={data.donusKm1} onChange={(e) => set("donusKm1", digits(e.target.value))} /></Field></div><Field label="Güzergah" htmlFor="guz"><Textarea id="guz" value={data.guzergah1} onChange={(e) => set("guzergah1", e.target.value)} /></Field><Field label="Araçtaki personeller" htmlFor="per"><Textarea id="per" value={data.personeller1} onChange={(e) => set("personeller1", e.target.value)} /></Field></Section>
-      <Section title="YAKIT"><SegmentToggle value={data.yakitAlindi1} onChange={(v) => { set("yakitAlindi1", v); set("yakitAlindi", v) }} options={[{ value: "Evet", label: "Evet" }, { value: "Hayır", label: "Hayır" }]} />{data.yakitAlindi1 === "Evet" && <div className="grid gap-4 sm:grid-cols-2"><Field label="Yakıt seviyesi (1-4)" htmlFor="yseviye"><NumberInput id="yseviye" min={1} max={4} value={String(data.yakitSeviyesi1 || "")} onChange={(e) => set("yakitSeviyesi1", Math.min(4, Math.max(0, Number(e.target.value))) as 0|1|2|3|4)} /></Field><Field label="Yakıt tarihi" htmlFor="ytarih"><TextInput id="ytarih" type="date" value={data.yakitTarihi1} onChange={(e) => { set("yakitTarihi1", e.target.value); set("yakitTarihi", e.target.value) }} /></Field></div>}</Section>
-      <Section title="ARAÇ KONTROL LİSTESİ">{CHECKLIST_ITEMS.map((item) => { const k=data.kontrol[item.id]; return <div key={item.id} className="space-y-2"><div className="text-sm font-medium">{item.label}</div><SegmentToggle<KontrolDurum> value={k.durum} onChange={(v) => set("kontrol", { ...data.kontrol, [item.id]: { ...k, durum: v } })} options={[{ value: "Uygun", label: "Uygun" }, { value: "Uygun Değil", label: "Uygun Değil" }]} />{k.durum === "Uygun Değil" && <TextInput placeholder="Açıklama" value={k.aciklama} onChange={(e) => set("kontrol", { ...data.kontrol, [item.id]: { ...k, aciklama: e.target.value } })} />}</div>})}</Section>
-      <Section title="ARAÇ EKİPMAN KONTROLÜ">{EQUIPMENT_ITEMS.map((item) => <CheckRow key={item.id} id={item.id} label={item.label} checked={data.ekipman[item.id]} onChange={(v) => set("ekipman", { ...data.ekipman, [item.id]: v })} />)}</Section>
-      <Section title="İMZA"><Field label="İmza karşılığı ad soyad" htmlFor="imza"><TextInput id="imza" value={data.imzaAdSoyad} onChange={(e) => set("imzaAdSoyad", e.target.value)} placeholder="Ad Soyad" /></Field><div className="mt-3 h-20 rounded-xl border border-dashed bg-muted/20" aria-label="İmza alanı" /></Section>
+  return (
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 px-3 py-4 sm:px-4 sm:py-6">
+      <FormHeader taslakNo={data.taslakNo} />
+
       <RulesAccordion />
-    </fieldset>
-    <div className="sticky bottom-3 z-20"><Button type="button" size="lg" disabled={locked || busy} onClick={save} className="h-14 w-full gap-2 shadow-lg"><Save className="size-5" />{busy ? "İşleniyor..." : "Kaydet"}</Button></div>
-    {toast && <div className="fixed bottom-20 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-xl bg-foreground px-4 py-3 text-sm text-background shadow-xl"><CheckCircle2 className="size-4" />{toast}</div>}
-  </div>
+
+      {errors.length > 0 && (
+        <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-4">
+          <div className="mb-2 flex items-center gap-2 font-semibold text-destructive">
+            <AlertCircle className="size-5" />
+            Lütfen eksik alanları tamamlayın
+          </div>
+          <ul className="list-disc space-y-1 pl-6 text-sm text-destructive">
+            {errors.map((e, i) => (
+              <li key={i}>{e}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* 1. Araç Bilgileri */}
+      <Section title="ARAÇ BİLGİLERİ" className="bg-slate-50/90 dark:bg-slate-900/60">
+        <Field label="Lokasyon / Bölge" htmlFor="lokasyon" required>
+          <SelectInput
+            id="lokasyon"
+            placeholder="Lokasyon seçiniz"
+            value={data.lokasyon}
+            onChange={(e) => {
+              const newLoc = e.target.value
+              setData((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      lokasyon: newLoc,
+                      sofor1: "",
+                      sofor2: "",
+                      sofor3: "",
+                    }
+                  : prev
+              )
+            }}
+          >
+            {LOCATIONS.map((loc) => (
+              <option key={loc} value={loc}>
+                {loc}
+              </option>
+            ))}
+          </SelectInput>
+        </Field>
+        <Field label="Tarih" htmlFor="tarih" required>
+          <TextInput id="tarih" type="date" value={data.tarih} onChange={(e) => set("tarih", e.target.value)} />
+        </Field>
+        <Field label="Araç / Plaka" htmlFor="plaka" required>
+          <SelectInput id="plaka" placeholder="Plaka seçiniz" value={data.plaka} onChange={(e) => set("plaka", e.target.value)}>
+            {VEHICLES.map((v) => (
+              <option key={v} value={v}>
+                {v}
+              </option>
+            ))}
+          </SelectInput>
+        </Field>
+        <Field label="Şoför 1" htmlFor="sofor1" required>
+          <SelectInput
+            id="sofor1"
+            placeholder={data.lokasyon ? "Şoför seçiniz" : "Önce lokasyon seçiniz"}
+            value={data.sofor1}
+            disabled={!data.lokasyon}
+            onChange={(e) => set("sofor1", e.target.value)}
+          >
+            {currentDrivers.map((d) => (
+              <option key={d} value={d}>
+                {d}
+              </option>
+            ))}
+          </SelectInput>
+        </Field>
+        <Field label="Şoför 2" htmlFor="sofor2" hint="Zorunlu değil">
+          <SelectInput
+            id="sofor2"
+            placeholder={data.lokasyon ? "Seçiniz" : "Önce lokasyon seçiniz"}
+            value={data.sofor2}
+            disabled={!data.lokasyon}
+            onChange={(e) => set("sofor2", e.target.value)}
+          >
+            {currentDrivers.map((d) => (
+              <option key={d} value={d}>
+                {d}
+              </option>
+            ))}
+          </SelectInput>
+        </Field>
+        <Field label="Şoför 3" htmlFor="sofor3" hint="Zorunlu değil">
+          <SelectInput
+            id="sofor3"
+            placeholder={data.lokasyon ? "Seçiniz" : "Önce lokasyon seçiniz"}
+            value={data.sofor3}
+            disabled={!data.lokasyon}
+            onChange={(e) => set("sofor3", e.target.value)}
+          >
+            {currentDrivers.map((d) => (
+              <option key={d} value={d}>
+                {d}
+              </option>
+            ))}
+          </SelectInput>
+        </Field>
+      </Section>
+
+      {/* 2. Seferler */}
+      <Section title="SEFERLER" className="bg-card">
+        <div className="grid gap-3">
+          {[1, 2, 3].map((trip) => {
+            const driverKey = `sofor${trip}` as "sofor1" | "sofor2" | "sofor3"
+            const routeKey = `guzergah${trip}` as "guzergah1" | "guzergah2" | "guzergah3"
+            const staffKey = `personeller${trip}` as "personeller1" | "personeller2" | "personeller3"
+            const startKmKey = `gidisKm${trip}` as "gidisKm1" | "gidisKm2" | "gidisKm3"
+            const endKmKey = `donusKm${trip}` as "donusKm1" | "donusKm2" | "donusKm3"
+            const startTimeKey = `cikisSaati${trip}` as "cikisSaati1" | "cikisSaati2" | "cikisSaati3"
+            const endTimeKey = `donusSaati${trip}` as "donusSaati1" | "donusSaati2" | "donusSaati3"
+            const levelKey = `yakitSeviyesi${trip}` as "yakitSeviyesi1" | "yakitSeviyesi2" | "yakitSeviyesi3"
+            const takenKey = `yakitAlindi${trip}` as "yakitAlindi1" | "yakitAlindi2" | "yakitAlindi3"
+            const dateKey = `yakitTarihi${trip}` as "yakitTarihi1" | "yakitTarihi2" | "yakitTarihi3"
+            const level = data[levelKey]
+            const optional = trip > 1
+            return (
+              <details key={trip} open={trip === 1} className="overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm">
+                <summary className="cursor-pointer list-none px-4 py-3 font-semibold marker:hidden">
+                  <span>{trip}. Sefer</span>
+                  <span className="ml-2 text-sm font-normal text-muted-foreground">{data[driverKey] || "Şoför seçilmedi"}</span>
+                </summary>
+                <div className="grid gap-3 border-t border-border/60 p-4">
+                  <Field label={`Şoför ${trip}`} htmlFor={driverKey} required={!optional}>
+                    <SelectInput id={driverKey} placeholder={data.lokasyon ? "Şoför seçiniz" : "Önce lokasyon seçiniz"} value={data[driverKey]} disabled={!data.lokasyon} onChange={(e) => set(driverKey, e.target.value)}>
+                      {currentDrivers.map((driver) => <option key={driver} value={driver}>{driver}</option>)}
+                    </SelectInput>
+                  </Field>
+                  <Field label="Araç Kullanımı / Güzergahı" htmlFor={routeKey}>
+                    <TextInput id={routeKey} value={data[routeKey]} onChange={(e) => set(routeKey, e.target.value)} placeholder="Örn: Tekirdağ - Şantiye" />
+                  </Field>
+                  <Field label="Görevli Personeller" htmlFor={staffKey} hint="Birden fazla kişi için virgül kullanabilirsiniz">
+                    <TextInput id={staffKey} value={data[staffKey]} onChange={(e) => set(staffKey, e.target.value)} placeholder="Ad Soyad, Ad Soyad" />
+                  </Field>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field label="Gidiş KM" htmlFor={startKmKey} required={!optional}>
+                      <NumberInput id={startKmKey} value={data[startKmKey]} onChange={(e) => set(startKmKey, onlyDigits(e.target.value))} />
+                    </Field>
+                    <Field label="Dönüş KM" htmlFor={endKmKey} required={data.durum === "Tamamlandı" && !optional}>
+                      <NumberInput id={endKmKey} value={data[endKmKey]} onChange={(e) => set(endKmKey, onlyDigits(e.target.value))} />
+                    </Field>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field label="Çıkış saati" htmlFor={startTimeKey} required={!optional}>
+                      <TextInput id={startTimeKey} type="time" value={data[startTimeKey]} onChange={(e) => set(startTimeKey, e.target.value)} />
+                    </Field>
+                    <Field label="Dönüş saati" htmlFor={endTimeKey} required={data.durum === "Tamamlandı" && !optional}>
+                      <TextInput id={endTimeKey} type="time" value={data[endTimeKey]} onChange={(e) => set(endTimeKey, e.target.value)} />
+                    </Field>
+                  </div>
+                  <div>
+                    <div className="mb-2 text-sm font-medium">Yakıt seviyesi</div>
+                    <div className="grid grid-cols-4 gap-2" role="group" aria-label={`${trip}. sefer yakıt seviyesi`}>
+                      {[1, 2, 3, 4].map((nextLevel) => {
+                        const selected = level >= nextLevel
+                        const label = nextLevel === 1 ? "¼" : nextLevel === 2 ? "½" : nextLevel === 3 ? "¾" : "Dolu"
+                        return <button key={nextLevel} type="button" aria-label={`${trip}. sefer depo ${label}`} aria-pressed={selected} onClick={() => { set(takenKey, "Evet"); set(levelKey, nextLevel as 0 | 1 | 2 | 3 | 4) }} className={`min-h-14 rounded-xl border text-center transition ${selected ? "border-foreground bg-foreground text-background" : "border-border bg-background hover:bg-muted"}`}><span className="block text-lg">{selected ? "■" : "□"}</span><span className="text-xs">{label}</span></button>
+                      })}
+                    </div>
+                    <button type="button" onClick={() => { set(takenKey, "Hayır"); set(levelKey, 0) }} className={`mt-2 w-full rounded-xl border px-3 py-2 text-sm ${level === 0 ? "border-foreground bg-foreground text-background" : "border-border hover:bg-muted"}`}>Yakıt alınmadı</button>
+                  </div>
+                  {level > 0 && <Field label="Yakıt alınan tarih" htmlFor={dateKey}><TextInput id={dateKey} type="date" value={data[dateKey]} onChange={(e) => set(dateKey, e.target.value)} /></Field>}
+                </div>
+              </details>
+            )
+          })}
+        </div>
+      </Section>
+
+      {/* 5. Kontrol listesi */}
+      <Section title="ARAÇ KONTROL LİSTESİ" className="bg-slate-50/90 dark:bg-slate-900/60">
+        {CHECKLIST_ITEMS.map((item) => {
+          const madde = data.kontrol[item.id]
+          return (
+            <div key={item.id} className="flex flex-col gap-2">
+              <div className="text-sm font-medium text-foreground">{item.label}</div>
+              <SegmentToggle<KontrolDurum>
+                value={madde.durum}
+                onChange={(v) =>
+                  set("kontrol", { ...data.kontrol, [item.id]: { ...madde, durum: v } })
+                }
+                options={[
+                  { value: "Uygun", label: "Uygun" },
+                  { value: "Uygun Değil", label: "Uygun Değil" },
+                ]}
+              />
+              {madde.durum === "Uygun Değil" && (
+                <TextInput
+                  placeholder="Açıklama giriniz"
+                  value={madde.aciklama}
+                  onChange={(e) =>
+                    set("kontrol", { ...data.kontrol, [item.id]: { ...madde, aciklama: e.target.value } })
+                  }
+                />
+              )}
+            </div>
+          )
+        })}
+      </Section>
+
+      {/* 6. Ekipman */}
+      <Section title="ARAÇ EKİPMAN KONTROLÜ" className="bg-card">
+        <div className="grid grid-cols-1 gap-2">
+          {EQUIPMENT_ITEMS.map((item) => (
+            <CheckRow
+              key={item.id}
+              id={`ekipman-${item.id}`}
+              label={item.label}
+              checked={data.ekipman[item.id]}
+              onChange={(v) => set("ekipman", { ...data.ekipman, [item.id]: v })}
+            />
+          ))}
+        </div>
+      </Section>
+
+      {/* Gönder */}
+      <div className="sticky bottom-3 z-10 mt-2">
+        <Button
+          onClick={handleSubmit}
+          disabled={isExporting}
+          size="lg"
+          className="h-14 w-full rounded-2xl text-lg font-semibold shadow-lg"
+        >
+          {isExporting ? "KAYDEDİLİYOR..." : "KAYDET"}
+        </Button>
+      </div>
+
+      <button
+        type="button"
+        onClick={handleReset}
+        className="mx-auto mt-1 inline-flex items-center gap-1.5 text-sm text-muted-foreground underline-offset-4 hover:underline"
+      >
+        <RotateCcw className="size-4" />
+        Yeni boş form oluştur
+      </button>
+
+      {toast && (
+        <div className="fixed inset-x-0 bottom-4 z-50 mx-auto flex w-fit items-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-medium text-primary-foreground shadow-lg">
+          <CheckCircle2 className="size-4" />
+          {toast}
+        </div>
+      )}
+
+      {shareOpen && shareLinks && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4" role="dialog" aria-modal="true" aria-label="Paylaşım seçenekleri">
+          <div className="w-full max-w-sm rounded-2xl bg-background p-5 shadow-2xl">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold">Paylaşım seçenekleri</h2>
+                <p className="text-sm text-muted-foreground">Doldurulmuş Excel çizelgesi hazır. Kanal seçin.</p>
+              </div>
+              <button type="button" onClick={() => setShareOpen(false)} className="rounded-full p-2 hover:bg-muted" aria-label="Kapat">
+                <X className="size-5" />
+              </button>
+            </div>
+            <div className="grid gap-3">
+              <button
+                type="button"
+                onClick={async () => {
+                  if (shareFile && navigator.canShare?.({ files: [shareFile] })) {
+                    try {
+                      await navigator.share({ files: [shareFile], title: "Günlük Araç Kullanım Formu", text: "Doldurulmuş Excel çizelgesi ektedir." })
+                      setShareOpen(false)
+                      return
+                    } catch (error) {
+                      if (error instanceof DOMException && error.name === "AbortError") return
+                    }
+                  }
+                  window.open(shareLinks.whatsapp, "_blank", "noopener,noreferrer")
+                }}
+                className="flex items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 py-3 font-semibold text-white"
+              >
+                <MessageCircle className="size-5" /> WhatsApp ile Excel gönder
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (shareFile && navigator.canShare?.({ files: [shareFile] })) {
+                    try {
+                      await navigator.share({ files: [shareFile], title: "Günlük Araç Kullanım Formu", text: "Doldurulmuş Excel çizelgesi ektedir." })
+                      setShareOpen(false)
+                      return
+                    } catch (error) {
+                      if (error instanceof DOMException && error.name === "AbortError") return
+                    }
+                  }
+                  window.location.href = shareLinks.email
+                }}
+                className="flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 font-semibold text-primary-foreground"
+              >
+                <Mail className="size-5" /> E-posta ile Excel gönder
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
