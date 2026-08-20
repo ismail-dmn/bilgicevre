@@ -60,6 +60,9 @@ export interface FormData {
   yakitTarihi2: string
   yakitTarihi3: string
 
+  // İmza
+  imzaAdSoyad: string
+
   // Kontrol listesi + ekipman
   kontrol: Record<string, KontrolMaddesi>
   ekipman: Record<string, boolean>
@@ -120,6 +123,7 @@ export function createEmptyForm(taslakNo: string): FormData {
     yakitTarihi1: "",
     yakitTarihi2: "",
     yakitTarihi3: "",
+    imzaAdSoyad: "",
     kontrol,
     ekipman,
   }

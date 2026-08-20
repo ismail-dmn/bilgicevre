@@ -1,42 +1,6 @@
-import { NextResponse } from 'next/server';
-import ExcelJS from 'exceljs';
-import path from 'path';
-import { mapFormDataToExcel } from '@/lib/excel-mapping';
-
-export async function POST(request: Request) {
-  try {
-    const formData = await request.json();
-
-    // Şablon Excel dosyasının yolu (data klasörü içinde)
-    // Şablon isminizi buraya tam olarak yazın
-    const templatePath = path.join(process.cwd(), 'data', 'arac-kullanim-sablon.xlsx'); 
-
-    // Yeni bir Workbook oluştur ve şablonu oku
-    const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.readFile(templatePath);
-
-    // İlk çalışma sayfasını (worksheet) seç (ÇİZELGE veya Sayfa1)
-    const worksheet = workbook.worksheets[0];
-
-    // Form verilerini Excel'e yaz
-    mapFormDataToExcel(worksheet, formData);
-
-    // Excel'i buffer'a çevir
-    const buffer = await workbook.xlsx.writeBuffer();
-
-    // İndirilebilir dosya olarak yanıt dön
-    return new NextResponse(buffer, {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'Content-Disposition': `attachment; filename="Arac_Kullanim_Formu_${formData.tarih || 'Yeni'}.xlsx"`,
-      },
-    });
-  } catch (error) {
-    console.error('Excel oluşturma hatası:', error);
-    return NextResponse.json(
-      { error: 'Excel dosyası oluşturulurken bir hata meydana geldi.' },
-      { status: 500 }
-    );
-  }
-}
+import { NextResponse } from "next/server"
+import ExcelJS from "exceljs"
+import path from "path"
+const fmt=(x:string)=>x?x.split("-").reverse().join("."):""
+const check=(x:any)=>x?.durum==="Uygun Değil"?`□ Kontrol Edildi.\n■ Uygun değil.\n■ Diğer: ${x.aciklama||"Belirtilmedi"}`:"■ Kontrol Edildi.\n□ Uygun değil.\n□ Diğer…..............."
+export async function POST(req:Request){try{const {month,records=[]}=await req.json();const wb=new ExcelJS.Workbook();await wb.xlsx.readFile(path.join(process.cwd(),"data","arac-kullanim-sablon.xlsx"));const ws=wb.worksheets[0];ws.getCell("C1").value="GÜNLÜK ARAÇ KULLANIMI TAKİP ÇİZELGESİ";records.slice(0,175).forEach((r:any,i:number)=>{const row=12+i;ws.getCell(`A${row}`).value=r.sofor1||"";ws.getCell(`C${row}`).value=fmt(r.tarih);ws.getCell(`E${row}`).value=r.plaka||"";ws.getCell(`F${row}`).value=check(r.kontrol?.cam_kaporta);ws.getCell(`G${row}`).value=check(r.kontrol?.lastikler);const bad=["farlar","korna","silecek","camlar"].map(k=>r.kontrol?.[k]).find(x=>x?.durum==="Uygun Değil");ws.getCell(`H${row}`).value=check(bad);ws.getCell(`I${row}`).value=r.yakitAlindi1==="Evet"?"Yakıt alındı":"Yakıt alınmadı";ws.getCell(`J${row}`).value=r.yakitAlindi1==="Evet"?fmt(r.yakitTarihi1):"-";ws.getCell(`K${row}`).value=r.guzergah1||r.guzergah||"";ws.getCell(`L${row}`).value=r.personeller1||"";ws.getCell(`M${row}`).value=Number(r.gidisKm1)||r.gidisKm1||"";ws.getCell(`N${row}`).value=Number(r.donusKm1)||r.donusKm1||"";ws.getCell(`O${row}`).value=`${r.cikisSaati1||"-"} - ${r.donusSaati1||"-"}`;ws.getCell(`Q${row}`).value=r.imzaAdSoyad||r.kullaniciAdSoyad||""});const buffer=await wb.xlsx.writeBuffer();return new NextResponse(buffer,{headers:{"Content-Type":"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","Content-Disposition":`attachment; filename="${month}_GUNLUK_ARAC_KULLANIM_TAKIP_CIZELGESI.xlsx"`}})}catch(e){console.error(e);return NextResponse.json({error:"Excel oluşturulamadı."},{status:500})}}

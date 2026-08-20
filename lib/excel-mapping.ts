@@ -36,7 +36,29 @@ function fmtTarih(iso: string): string {
 }
 
 export const mapFormDataToExcel = (worksheet: any, formData: any) => {
-  worksheet.getCell("C1").value = "GÜNLÜK ARAÇ KULLANIMI TAKİP ÇİZELGESİ"
+  // 1. Dinamik Başlık Güncellemesi (C1 hücresi)
+  const tarihStr = formData.tarih || new Date().toISOString().slice(0, 10)
+  const parts = tarihStr.split("-")
+  if (parts.length >= 2) {
+    const [yil, ayNum] = parts
+    const AY_ISIMLERI_TR: Record<string, string> = {
+      "01": "OCAK",
+      "02": "ŞUBAT",
+      "03": "MART",
+      "04": "NİSAN",
+      "05": "MAYIS",
+      "06": "HAZİRAN",
+      "07": "TEMMUZ",
+      "08": "AĞUSTOS",
+      "09": "EYLÜL",
+      "10": "EKİM",
+      "11": "KASIM",
+      "12": "ARALIK",
+    }
+    const ayIsmi = AY_ISIMLERI_TR[ayNum] || "AY"
+    const titleText = `${yil}-${ayIsmi} AYI GÜNLÜK ARAÇ KULLANIMI TAKİP ÇİZELGESİ`.toUpperCase()
+    worksheet.getCell("C1").value = titleText
+  }
 
   // Plaka ve form verileri, şablondaki tablo satırlarına yazılır.
   if (formData.plaka) worksheet.getCell("E30").value = formData.plaka;
