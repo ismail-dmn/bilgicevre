@@ -3,19 +3,13 @@ service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null && request.auth.token.email != null; }
     function email() { return request.auth.token.email; }
-    function profilePath() { return /databases/$(database)/documents/yetkili-kullanicilar/$(email()); }
-    function activeUser() { return signedIn() && exists(profilePath()) && get(profilePath()).data.aktif == true; }
-    function adminUser() { return activeUser() && get(profilePath()).data.rol == "yonetici"; }
-
-    match /yetkili-kullanicilar/{userEmail} {
-      allow read: if signedIn() && email() == userEmail;
-      allow write: if false;
-    }
-    match /arac-kullanim-kayitlari/{recordId} {
-      allow create: if activeUser()
-        && request.resource.data.kullaniciUid == request.auth.uid
-        && request.resource.data.kullaniciEmail == email();
-      allow read: if adminUser();
+    function profile() { return get(/databases/$(database)/documents/yetkili-kullanicilar/$(email())); }
+    function active() { return signedIn() && exists(/databases/$(database)/documents/yetkili-kullanicilar/$(email())) && profile().data.aktif == true; }
+    function admin() { return active() && profile().data.rol == "yonetici"; }
+    match /yetkili-kullanicilar/{userEmail} { allow read: if signedIn() && email() == userEmail; allow write: if false; }
+    match /arac-kullanim-kayitlari/{id} {
+      allow create: if active() && request.resource.data.kullaniciUid == request.auth.uid && request.resource.data.kullaniciEmail == email();
+      allow read: if admin();
       allow update, delete: if false;
     }
   }
