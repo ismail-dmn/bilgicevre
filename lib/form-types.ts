@@ -60,7 +60,6 @@ export interface FormData {
   yakitTarihi2: string
   yakitTarihi3: string
 
-  // İmza
   imzaAdSoyad: string
 
   // Kontrol listesi + ekipman
