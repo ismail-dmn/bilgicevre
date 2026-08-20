@@ -32,17 +32,12 @@ export const DRIVERS = [
 
 // Araç kontrol listesi maddeleri
 export const CHECKLIST_ITEMS = [
-  { id: "lastik_basinci_hasar", label: "Lastiklerin hava basıncı ve hasar kontrolü" },
-  { id: "periyodik_bakim", label: "Periyodik bakım kontrolü" },
-  { id: "gostergeler", label: "Göstergelerin kontrolü" },
-  { id: "kaporta_hasar", label: "Kaporta hasar kontrolü" },
-  { id: "ic_yan_aynalar", label: "İç ve yan aynaların kontrolü" },
-  { id: "sivi_akintisi", label: "Sıvı akıntısına karşı aracın alt kontrolü" },
-  { id: "cam_temizligi_durumu", label: "Cam temizliği ve durumu kontrolü" },
-  { id: "cam_suyu", label: "Cam suyu kontrolü" },
-  { id: "far_isik", label: "Far ve ışık donanım kontrolü" },
-  { id: "sinyal", label: "Sinyal kontrolü" },
-  { id: "aydinlatma_yangin_tupu", label: "Aydınlatma ve yangın tüpü kontrolü" },
+  { id: "cam_kaporta", label: "Cam / Kaporta" },
+  { id: "lastikler", label: "Lastikler" },
+  { id: "farlar", label: "Farlar" },
+  { id: "korna", label: "Korna" },
+  { id: "silecek", label: "Silecek" },
+  { id: "camlar", label: "Camlar" },
 ] as const
 
 // Araçta bulunması gereken ekipmanlar
